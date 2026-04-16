@@ -27,7 +27,8 @@ develop-eggs/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ ignored globally previously, removing to allow Flutter app lib
+# lib/
 lib64/
 parts/
 sdist/
