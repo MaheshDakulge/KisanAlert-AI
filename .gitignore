@@ -1,16 +1,49 @@
+# Environment
 .env
 .env.*
 !.env.example
 
+# Node
+node_modules/
+
+# Build
+dist/
+build/
+
+# TinyFish
+.tinyfish/cache/
+
+# Python
 __pycache__/
 *.py[cod]
-
+*$py.class
+*.so
 .venv/
 venv/
+env/
 .pytest_cache/
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
+# KisanAlert specific
+kisanalert/data/
+kisanalert/logs/
 logs/
 models/
 data/cache/
 data/processed/
-
+*.sqlite3
+*.db
