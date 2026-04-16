@@ -78,21 +78,68 @@ def fetch_macro_data(start_date: str | datetime = None, end_date: str | datetime
         log.error("Failed to fetch macro data: %s", e)
         return pd.DataFrame(columns=["date", "usd_inr", "cbot_close", "cbot_weekly_change"])
 
+import requests
+from bs4 import BeautifulSoup
+import urllib3
+urllib3.disable_warnings()
+
 def fetch_dgft_export_ban_flag(commodity: str) -> float:
     """
-    [STUB] Scrapes the Directorate General of Foreign Trade (DGFT) for active export bans.
-    Returns 1.0 if an export ban is active for the commodity, else 0.0.
+    Scrapes the Directorate General of Foreign Trade (DGFT) news/notifications portal
+    for active export bans on the given commodity.
+    Returns 1.0 if an export ban is active or recently announced, else 0.0.
     """
-    # For MVP: Returning 0.0 meaning no ban.
-    return 0.0
+    log.info(f"Scraping DGFT portal for export restrictions on {commodity}...")
+    try:
+        # Check an aggregated ag-commodity news source or generic DGFT keyword search
+        # Using a reliable search endpoint or representative site
+        url = "https://dgft.gov.in/CP/?opt=notification"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10, verify=False)
+        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            text_content = soup.get_text().lower()
+            
+            # Keywords indicating an export ban or restriction
+            ban_keywords = ["export ban", "prohibited", "export restricted", "halt exports"]
+            target = commodity.lower()
+            
+            # If the commodity and ban keywords appear in the recent notifications
+            if target in text_content and any(kw in text_content for kw in ban_keywords):
+                log.warning(f"🚨 DGFT Export Ban detected for {commodity}!")
+                return 1.0
+        return 0.0
+    except Exception as e:
+        log.error("DGFT scraper failed: %s", e)
+        return 0.0
 
 def fetch_nafed_release_flag(commodity: str) -> float:
     """
-    [STUB] Scrapes NAFED / FCI tender releases. 
+    Scrapes NAFED / FCI tender releases. 
     Returns 1.0 if the government is releasing buffer stocks into the open market, else 0.0.
     """
-    # For MVP: Returning 0.0 meaning no buffer stock release.
-    return 0.0
+    log.info(f"Scraping NAFED active tenders for {commodity} buffer release...")
+    try:
+        url = "https://www.nafed-india.com/tenders"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10, verify=False)
+        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            text_content = soup.get_text().lower()
+            
+            # Keywords indicating government buffer stock offloading
+            release_keywords = ["disposal", "sale of", "buffer release", "offloading", "open market sale"]
+            target = commodity.lower()
+            
+            if target in text_content and any(kw in text_content for kw in release_keywords):
+                log.warning(f"🚨 NAFED Buffer Release detected for {commodity}!")
+                return 1.0
+        return 0.0
+    except Exception as e:
+        log.error("NAFED scraper failed: %s", e)
+        return 0.0
 
 if __name__ == "__main__":
     b_df = fetch_macro_data(start_date="2021-01-01", end_date="2021-02-01")

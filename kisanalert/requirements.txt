@@ -10,3 +10,10 @@ supabase>=2.0.0
 joblib>=1.2.0
 # Layer 3: Deep Learning LSTM
 tensorflow>=2.13.0
+
+# Layer 4 & APIs
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+firebase-admin>=6.2.0
+google-generativeai>=0.3.0
