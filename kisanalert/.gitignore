@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+
+.venv/
+venv/
+.pytest_cache/
+
+logs/
+models/
+data/cache/
+data/processed/
+
