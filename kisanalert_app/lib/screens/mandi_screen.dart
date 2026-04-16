@@ -227,12 +227,15 @@ class _MaratwaadaMap extends StatelessWidget {
     ];
 
     return pins.map((p) {
-      final priceStr = p.$6 != null ? '₹${p.$6!.priceForCrop(state.activeCrop).toStringAsFixed(0)}' : p.$4;
-      final signalStr = p.$6 != null ? p.$6!.signal : p.$5;
+    final priceStr = p.$6 != null
+        ? '₹${p.$6!.priceForCrop(state.activeCrop).toStringAsFixed(0)}'
+        : '—';  // Show dash, never fake data
+      final signalStr = p.$6?.signal ?? 'NONE';  // NONE = grey, no hardcoded colour
       final isBest = p.$6 != null && p.$6!.isBest;
-      final color = signalStr == 'GREEN' ? AppColors.greenVivid 
-          : signalStr == 'RED' ? AppColors.redVivid 
-          : AppColors.amberVivid;
+      final color = signalStr == 'GREEN' ? AppColors.greenVivid
+          : signalStr == 'RED' ? AppColors.redVivid
+          : signalStr == 'AMBER' ? AppColors.amberVivid
+          : AppColors.textMuted;  // Grey when no live data
 
       return Positioned(
         left: p.$1 * 370 - 30,

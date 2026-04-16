@@ -8,7 +8,7 @@ Run this using: uvicorn api:app --reload --host 0.0.0.0 --port 8000
 import sys
 import logging
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -123,22 +123,35 @@ def trigger_pipeline(commodity: str = Query(..., description="Crop name to execu
     Manually triggers the ML pipeline to fetch new data and generate an updated prediction.
     WARNING: This can take 15-30 seconds as it hits Agmarknet, OpenWeatherMap, and Gemini APIs.
     """
+def _run_pipeline_bg(commodity: str):
+    """Background worker — runs pipeline subprocess without blocking the API."""
     import subprocess
     try:
-        # Run the pipeline script as a subprocess
         cmd = ["python", "run_pipeline.py", "--crop", commodity]
-        # We run it synchronously here so the API caller knows when it's done. 
-        # For a truly scalable app, this should be a background task using Celery or FastAPI BackgroundTasks.
         process = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent))
-        
         if process.returncode != 0:
-            log.error(f"Pipeline failed: {process.stderr}")
-            raise HTTPException(status_code=500, detail="Pipeline execution failed.")
-            
-        return {"status": "success", "message": f"Pipeline successfully executed for {commodity}. New alerts generated."}
+            log.error(f"Background pipeline failed for {commodity}: {process.stderr}")
+        else:
+            log.info(f"Background pipeline completed for {commodity}")
     except Exception as e:
-        log.error(f"Subprocess error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to start the pipeline.")
+        log.error(f"Background pipeline exception: {e}")
+
+
+@app.post("/api/v1/pipeline/trigger", tags=["Pipeline"])
+def trigger_pipeline(
+    commodity: str = Query(..., description="Crop name to execute pipeline for"),
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Triggers the ML pipeline asynchronously using BackgroundTasks —
+    returns immediately, runs in background (no more 30-second API freezes).
+    """
+    if background_tasks is not None:
+        background_tasks.add_task(_run_pipeline_bg, commodity)
+        return {"status": "accepted", "message": f"Pipeline started for {commodity} in background. Check /alerts/latest in ~30s."}
+    # Fallback: sync run (shouldn't happen with proper FastAPI injection)
+    _run_pipeline_bg(commodity)
+    return {"status": "success", "message": f"Pipeline completed for {commodity}."}
 
 @app.post("/api/v1/predict", tags=["Pipeline"])
 def predict(commodity: str = Query(..., description="Crop name")):

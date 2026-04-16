@@ -19,7 +19,20 @@ class _PredictScreenState extends State<PredictScreen> {
   Widget build(BuildContext context) {
     final isDark = widget.state.isDark;
     final isMarathi = widget.state.isMarathi;
-    final crop = widget.state.currentCrop!;
+    final crop = widget.state.currentCrop;
+    if (crop == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: AppColors.green),
+            const SizedBox(height: 16),
+            Text(isMarathi ? 'आडावा लोड होत आहे...' : 'Loading prediction data...',
+              style: GoogleFonts.workSans(color: AppColors.textMuted)),
+          ],
+        ),
+      );
+    }
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final textMuted = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
     final surface = isDark ? AppColors.darkSurfaceRaised : AppColors.surfaceRaised;
