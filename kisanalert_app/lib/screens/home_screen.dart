@@ -22,7 +22,20 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = state.isDark;
-    final crop = state.currentCrop!;
+    final crop = state.currentCrop;
+    if (crop == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: AppColors.green),
+            const SizedBox(height: 16),
+            Text(state.isMarathi ? 'डेटा लोड होत आहे...' : 'Loading live data...',
+              style: GoogleFonts.workSans(color: AppColors.textMuted)),
+          ],
+        ),
+      );
+    }
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final textMuted = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 

@@ -36,7 +36,7 @@ class AppState extends ChangeNotifier {
   List<ForecastDay> _currentForecast = [];
   List<ForecastDay> get currentForecast => _currentForecast;
 
-  final List<CommunityStory> _currentStories = [];
+  List<CommunityStory> _currentStories = [];
   List<CommunityStory> get currentStories => _currentStories;
 
   AppState() {
@@ -84,15 +84,16 @@ class AppState extends ChangeNotifier {
         )).toList();
 
         if (_currentMandis.isNotEmpty) {
-          _currentMandis.first = MandiData(
-            name: _currentMandis.first.name,
-            distanceKm: _currentMandis.first.distanceKm,
-            soybeanPrice: _currentMandis.first.soybeanPrice,
-            cottonPrice: _currentMandis.first.cottonPrice,
-            turmericPrice: _currentMandis.first.turmericPrice,
-            signal: _currentMandis.first.signal,
-            weather: _currentMandis.first.weather,
-            advice: _currentMandis.first.advice,
+          final best = _currentMandis[0];
+          _currentMandis[0] = MandiData(
+            name: best.name,
+            distanceKm: best.distanceKm,
+            soybeanPrice: best.soybeanPrice,
+            cottonPrice: best.cottonPrice,
+            turmericPrice: best.turmericPrice,
+            signal: best.signal,
+            weather: best.weather,
+            advice: best.advice,
             isBest: true,
           );
         }
@@ -142,11 +143,31 @@ class AppState extends ChangeNotifier {
         _currentForecast = [];
       }
 
+      // ── Community Stories (Chopal) ──────────────────────────────────────────
+      final stories = await ApiService.getCommunityStories(_activeCrop);
+      if (stories.isNotEmpty) {
+        _currentStories = stories.map((s) => CommunityStory(
+          initials: s['initials'] ?? '??',
+          avatarColor: s['avatarColor'] ?? 'green',
+          nameEn: s['nameEn'] ?? 'Anonymous',
+          distanceKm: s['distanceKm'] ?? '0km',
+          messageMr: s['messageMr'] ?? '',
+          messageEn: s['messageEn'] ?? '',
+          isVerified: s['isVerified'] ?? false,
+          verifiedDate: s['verifiedDate'] ?? '',
+          crop: s['crop'] ?? _activeCrop,
+          saved: s['saved'] ?? '',
+        )).toList();
+      } else {
+        _currentStories = [];
+      }
+
     } catch (e) {
       _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'Network error — check backend.', msp: 0);
       _currentMandis = [];
       _currentSignals = [];
       _currentForecast = [];
+      _currentStories = [];
     } finally {
       _isLoading = false;
       notifyListeners();

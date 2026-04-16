@@ -1,7 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-const String _baseUrl = 'http://127.0.0.1:8000/api/v1';
+// Use --dart-define=API_URL=https://your-cloud-run-url.run.app/api/v1 to override
+const String _baseUrl = String.fromEnvironment(
+  'API_URL',
+  defaultValue: 'http://10.0.2.2:8000/api/v1', // 10.0.2.2 maps to localhost on Android emulator
+);
 
 // ── Data Models ────────────────────────────────────────────────────────────────
 
@@ -130,11 +134,30 @@ class ApiService {
     return [];
   }
 
-  /// Returns last N days of alerts for building forecast strips.
   static Future<List<dynamic>> getAlertHistory(String commodity, {int limit = 7}) async {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/alerts/history?commodity=$commodity&district=Nanded&limit=$limit'),
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) return json.decode(res.body);
+    } catch (_) {}
+    return [];
+  }
+
+  static Future<Map<String, dynamic>?> getWeather(String district) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/weather/current?district=$district'),
+      ).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) return json.decode(res.body);
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<List<dynamic>> getCommunityStories(String commodity) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/community/stories?commodity=$commodity'),
       ).timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) return json.decode(res.body);
     } catch (_) {}

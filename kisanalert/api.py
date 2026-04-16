@@ -9,6 +9,7 @@ import sys
 import logging
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
@@ -27,6 +28,15 @@ app = FastAPI(
     title="KisanAlert Live API",
     description="Real-time Crop Price Crash Prediction and Decision Executor for Marathwada Farmers",
     version="2.0.0",
+)
+
+# Allow Flutter app (and any frontend) to call the API without CORS errors
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 class AlertResponse(BaseModel):
@@ -236,3 +246,82 @@ def voice_query(request: VoiceQuery):
         log.error(f"Voice query failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to serve AI response.")
 
+
+@app.get("/api/v1/weather/current", tags=["Weather"])
+def get_current_weather(district: str = Query("Nanded", description="District name")):
+    """
+    Returns live weather data from Open-Meteo (no API key required).
+    Uses the existing weather_loader.py module.
+    """
+    try:
+        # Nanded coordinates — can be parameterized per district later
+        district_coords = {
+            "Nanded":    (19.15, 77.32),
+            "Latur":     (18.40, 76.56),
+            "Osmanabad": (18.18, 76.04),
+            "Parbhani":  (19.27, 76.77),
+            "Hingoli":   (19.72, 77.15),
+        }
+        lat, lon = district_coords.get(district, (19.15, 77.32))
+        import requests as req
+        url = (
+            f"https://api.open-meteo.com/v1/forecast"
+            f"?latitude={lat}&longitude={lon}"
+            f"&daily=temperature_2m_max,precipitation_sum"
+            f"&forecast_days=7&timezone=Asia/Kolkata"
+        )
+        r = req.get(url, timeout=8)
+        r.raise_for_status()
+        data = r.json()
+        daily = data.get("daily", {})
+        days_raw = list(zip(
+            daily.get("time", []),
+            daily.get("temperature_2m_max", []),
+            daily.get("precipitation_sum", []),
+        ))
+        forecast = []
+        for d in days_raw:
+            rain = d[2] or 0.0
+            risk = "HIGH" if rain > 15 else "MED" if rain > 5 else "LOW"
+            icon = "🌧️" if rain > 15 else "⛅" if rain > 5 else "☀️"
+            forecast.append({
+                "date": d[0],
+                "temp_max_c": round(d[1], 1),
+                "rain_mm": round(rain, 1),
+                "risk": risk,
+                "icon": icon,
+            })
+        current = forecast[0] if forecast else {}
+        return {
+            "district": district,
+            "current": current,
+            "forecast": forecast,
+        }
+    except Exception as e:
+        log.error(f"Weather fetch failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch weather data.")
+
+
+@app.get("/api/v1/news", tags=["News"])
+def get_agri_news():
+    """
+    Returns latest agricultural news from public RSS feed.
+    Requires: pip install feedparser
+    """
+    try:
+        import feedparser
+        feed = feedparser.parse(
+            "https://economictimes.indiatimes.com/news/economy/agriculture/rssfeeds/65899772.cms"
+        )
+        return [
+            {
+                "title": e.get("title", ""),
+                "link": e.get("link", ""),
+                "date": e.get("published", ""),
+                "summary": e.get("summary", "")[:200],
+            }
+            for e in feed.entries[:10]
+        ]
+    except Exception as e:
+        log.error(f"News fetch failed: {e}")
+        return []  # Fail gracefully — news is non-critical
