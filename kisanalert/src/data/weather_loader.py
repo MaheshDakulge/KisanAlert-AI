@@ -55,7 +55,7 @@ def fetch_live_weather() -> pd.DataFrame:
         "latitude": coords["lat"],
         "longitude": coords["lon"],
         "past_days": 14,
-        "forecast_days": 2,
+        "forecast_days": 7,
         "daily": "precipitation_sum,temperature_2m_max",
         "timezone": "Asia/Kolkata"
     }
