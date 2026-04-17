@@ -88,7 +88,7 @@ def get_latest_alert(
         
     except Exception as e:
         log.error(f"Error fetching alert from Supabase: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error while fetching alerts.")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/v1/alerts/history", response_model=List[AlertResponse], tags=["Alerts"])
@@ -112,10 +112,49 @@ def get_alert_history(
             .limit(limit)
             .execute()
         )
+        
+        if not result.data:
+            import os
+            import pandas as pd
+            import config
+            
+            raw_dir = config.ROOT_DIR / "data" / "raw"
+            
+            target_csv = raw_dir / f"{commodity.lower()}_{district.lower()}.csv"
+            if not target_csv.exists():
+                candidates = list(raw_dir.glob(f"{commodity.lower()}_*.csv"))
+                if candidates:
+                    target_csv = candidates[0]
+                    
+            if target_csv.exists():
+                try:
+                    df = pd.read_csv(target_csv)
+                    if not df.empty:
+                        # Parse date carefully to ensure string matching
+                        fallback_data = []
+                        recent = df.tail(limit)
+                        for _, row in recent.iterrows():
+                            price = float(row.get('modal_price', 0))
+                            if price == 0: price = float(row.get('max_price', 0))
+                            if price > 0:
+                                fallback_data.append({
+                                    'id': 0,
+                                    'commodity': commodity,
+                                    'district': str(row.get('district', district)),
+                                    'price': price,
+                                    'crash_score': 0.05,
+                                    'alert_level': 'GREEN',
+                                    'message': 'Raw historical data fetch',
+                                    'date': str(row.get('date', '2026-01-01'))
+                                })
+                        return fallback_data[::-1]
+                except Exception as ex:
+                    log.warning(f"History CSV fallback failed: {ex}")
+
         return result.data
     except Exception as e:
         log.error(f"Error fetching history: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error while fetching history.")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/pipeline/trigger", tags=["Pipeline"])
 def trigger_pipeline(commodity: str = Query(..., description="Crop name to execute pipeline for")):
@@ -154,18 +193,36 @@ def trigger_pipeline(
     return {"status": "success", "message": f"Pipeline completed for {commodity}."}
 
 @app.post("/api/v1/predict", tags=["Pipeline"])
-def predict(commodity: str = Query(..., description="Crop name")):
+def predict(
+    commodity: str = Query(..., description="Crop name"),
+    background_tasks: BackgroundTasks = None
+):
     """
     Predicts crash probability using the latest scraped data and ML pipeline.
+    Orchestrates ingestion of Agmarknet prices, NAFED procurement status,
+    and DGFT policy changes.
     """
-    # 1. Scrape latest data
+    # 1. Scrape latest data from Agmarknet
     scraper = AgmarknetScraper()
     latest_data = scraper.get_latest_data(commodity=commodity)
     if not latest_data:
         raise HTTPException(status_code=500, detail="Failed to scrape live data from Agmarknet.")
+        
+    # 2. Extract policy & procurement statuses (NAFED / DGFT)
+    nafed_status = NafedScraper().check_procurement_status(commodity=commodity)
+    dgft_status = DgftScraper().check_policy_changes(commodity=commodity)
     
-    # 2. Run pipeline
-    return trigger_pipeline(commodity=commodity)
+    # 3. Trigger baseline prediction pipeline
+    pipeline_status = trigger_pipeline(commodity=commodity, background_tasks=background_tasks)
+    
+    return {
+        "pipeline_status": pipeline_status,
+        "latest_data": latest_data,
+        "policy_context": {
+            "nafed_procurement": nafed_status,
+            "dgft_policy": dgft_status
+        }
+    }
 
 @app.get("/api/v1/mandis/compare", tags=["Alerts"])
 def compare_mandis(commodity: str = Query(..., description="Crop name to compare across mandis")):
@@ -186,12 +243,57 @@ def compare_mandis(commodity: str = Query(..., description="Crop name to compare
         # Filter strictly for the latest date
         todays_alerts = [alert for alert in result.data if alert['date'] == latest_date]
         
+        # Dynamically inject live prices from uploaded raw CSVs without needing ML predictions
+        try:
+            import os
+            import pandas as pd
+            from pathlib import Path
+            import config
+            
+            raw_dir = config.ROOT_DIR / "data" / "raw"
+            if raw_dir.exists():
+                for f in raw_dir.glob(f"{commodity.lower()}_*.csv"):
+                    district = f.stem.split("_")[-1].capitalize()
+                    
+                    if any(a['district'] == district for a in todays_alerts):
+                        continue
+                        
+                    try:
+                        df = pd.read_csv(f)
+                        if not df.empty:
+                            last_row = df.iloc[-1]
+                            price = float(last_row.get('modal_price', 0))
+                            if price == 0: price = float(last_row.get('max_price', 0))
+                            
+                            # Lead-Lag Engine Evaluation
+                            lead_price = max([a['price'] for a in todays_alerts] + [price])
+                            lag_diff = 0.0
+                            if price > 0 and lead_price > price:
+                                lag_diff = (lead_price - price) / price
+                                
+                            computed_crash_score = min(max(0.15 + lag_diff, 0.0), 0.95)
+                            alert_lvl = 'GREEN' if computed_crash_score < 0.4 else ('YELLOW' if computed_crash_score < 0.7 else 'RED')
+                            
+                            todays_alerts.append({
+                                'commodity': commodity,
+                                'district': district,
+                                'price': price,
+                                'crash_score': round(computed_crash_score, 2),
+                                'alert_level': alert_lvl,
+                                'message': f'Lead-Lag differential: {round(lag_diff * 100, 1)}% lag behind leading APMC.',
+                                'date': str(last_row.get('date', latest_date))
+                            })
+                    except Exception as ex:
+                        log.error(f"Error parsing raw CSV {f.name} for mandi update: {ex}")
+        except Exception as outer_ex:
+            log.warning(f"Failed to scan raw directory: {outer_ex}")
+
         # Rank by lowest crash score
         ranked = sorted(todays_alerts, key=lambda x: x['crash_score'])
         return ranked
     except Exception as e:
         log.error(f"Failed to compare mandis: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/v1/community/stories", tags=["Community"])
 def get_community_stories(commodity: str = Query(..., description="Crop name filter for stories")):

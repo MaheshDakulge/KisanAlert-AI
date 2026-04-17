@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-04-18T03:06:50.082989",
+  "data_file": "data/processed/features_labeled.csv",
+  "rows": 1932,
+  "years": [
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026
+  ],
+  "yearly_crash_rate": {
+    "2021": 0.494,
+    "2022": 0.334,
+    "2023": 0.255,
+    "2024": 0.131,
+    "2025": 0.132,
+    "2026": 0.115
+  },
+  "diagnoses": {
+    "Distribution Shift": "SHIFT",
+    "Data Leakage": "MAYBE_LEAKAGE",
+    "Label Consistency": "INCONSISTENT_LABELS",
+    "Model Fit": "OK"
+  },
+  "train_auc": 1.0,
+  "test_auc": 1.0,
+  "feature_count": 33
+}

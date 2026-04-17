@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from supabase import create_client, Client
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config
 
 log = logging.getLogger(__name__)

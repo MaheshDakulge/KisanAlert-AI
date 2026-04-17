@@ -134,7 +134,7 @@ class MandiScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      state.isMarathi ? 'आत्ताच उस्मानाबादला विका' : 'Sell at Osmanabad NOW',
+                      state.isMarathi ? 'आत्ताच लातूरला विका' : 'Sell at Latur NOW',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.workSans(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
@@ -217,13 +217,14 @@ class _MaratwaadaMap extends StatelessWidget {
 
     final pins = [
       (0.5, 0.52, 'Nanded', '₹5,352', 'AMBER', find('Nanded')),
-      (0.35, 0.38, 'Osmanabad', '₹5,200', 'GREEN', find('Osmanabad')),
+
       (0.30, 0.65, 'Latur', '₹5,050', 'GREEN', find('Latur')),
       (0.57, 0.32, 'Parbhani', '₹4,400', 'RED', find('Parbhani')),
       (0.22, 0.28, 'Beed', '₹4,980', 'GREEN', find('Beed')),
       (0.65, 0.63, 'Hingoli', '₹4,700', 'AMBER', find('Hingoli')),
       (0.76, 0.40, 'Jalna', '₹4,820', 'GREEN', find('Jalna')),
       (0.80, 0.72, 'Sambhajinagar', '₹4,550', 'AMBER', find('Sambhajinagar')),
+      (0.10, 0.20, 'Mumbai', 'Loading', 'GREEN', find('Mumbai')),
     ];
 
     return pins.map((p) {

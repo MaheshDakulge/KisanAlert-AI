@@ -39,6 +39,9 @@ class AppState extends ChangeNotifier {
   List<CommunityStory> _currentStories = [];
   List<CommunityStory> get currentStories => _currentStories;
 
+  List<dynamic> _yearHistory = [];
+  List<dynamic> get yearHistory => _yearHistory;
+
   AppState() {
     fetchData();
   }
@@ -143,6 +146,9 @@ class AppState extends ChangeNotifier {
         _currentForecast = [];
       }
 
+      // ── Year History (for chart) ──────────────────────────────────────────
+      _yearHistory = await ApiService.getAlertHistory(_activeCrop, limit: 365);
+
       // ── Community Stories (Chopal) ──────────────────────────────────────────
       final stories = await ApiService.getCommunityStories(_activeCrop);
       if (stories.isNotEmpty) {
@@ -167,6 +173,7 @@ class AppState extends ChangeNotifier {
       _currentMandis = [];
       _currentSignals = [];
       _currentForecast = [];
+      _yearHistory = [];
       _currentStories = [];
     } finally {
       _isLoading = false;

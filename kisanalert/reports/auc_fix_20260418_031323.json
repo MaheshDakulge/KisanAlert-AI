@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-04-18T03:13:23.219088",
+  "fixes_applied": [
+    "Removed leaked 'drop' feature",
+    "Replaced fixed threshold with volatility-adjusted labels",
+    "New threshold: 1.5\u00d7 rolling 30-day volatility"
+  ],
+  "metrics": {
+    "test_auc": 0.43077122153209113,
+    "test_rows": 290,
+    "overall_crash_rate": 0.03905013192612137,
+    "crash_rate_by_year": {
+      "2021": 0.049,
+      "2022": 0.025,
+      "2023": 0.047,
+      "2024": 0.03,
+      "2025": 0.038,
+      "2026": 0.066
+    }
+  },
+  "config": {
+    "volatility_multiplier": 1.5,
+    "future_window_days": 7,
+    "train_end": "2024-12-31",
+    "valid_end": "2025-06-30",
+    "features_used": [
+      "modal_price",
+      "arrival_qty",
+      "min_price",
+      "max_price",
+      "hingoli_price",
+      "latur_price",
+      "parbhani_price",
+      "surrounding_price",
+      "usd_inr",
+      "cbot_close",
+      "cbot_weekly_change",
+      "price_spread_ratio",
+      "price_velocity",
+      "price_trend_30d",
+      "arrival_ratio",
+      "price_vs_7d_avg",
+      "rain_7d_sum",
+      "temp_7d_avg",
+      "is_raining_today",
+      "weather_shock_flag",
+      "month",
+      "day_of_week",
+      "year_norm",
+      "price_wave_lag_score",
+      "acceleration",
+      "distance_from_min",
+      "trend_strength",
+      "drawdown_7",
+      "cbot_price_inr",
+      "cbot_7day_trend",
+      "days_from_harvest_start",
+      "msp_gap"
+    ],
+    "features_dropped": [
+      "drop",
+      "label",
+      "date"
+    ]
+  }
+}

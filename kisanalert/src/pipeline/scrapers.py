@@ -22,8 +22,8 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
-# Absolute path to the yearly CSV directory — parents[3] = project root (Agri/)
-_YEARLY_DIR = Path(__file__).resolve().parents[3] / "data" / "yearly"
+# Absolute path to the yearly CSV directory — parents[2] = project root (Agri/)
+_YEARLY_DIR = Path(__file__).resolve().parents[2] / "data" / "yearly"
 
 # Commodity → keywords to identify rows in the Agmarknet CSVs
 # NOTE: Agmarknet spells it 'Soyabean' (with an 'a'), not 'Soybean'

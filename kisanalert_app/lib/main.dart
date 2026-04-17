@@ -115,9 +115,13 @@ class _AppShellState extends State<AppShell> {
       ProfileScreen(state: widget.state, onOpenVoice: _openVoice),
     ];
 
+    final now = DateTime.now();
+    final monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final dateString = '${now.day} ${monthsEn[now.month - 1]} ${now.year}';
+
     final pageTitles = [
-      [widget.state.isMarathi ? 'KisanAlert' : 'KisanAlert', widget.state.isMarathi ? 'नांदेड · 16 Apr 2026' : 'Nanded · 16 Apr 2026'],
-      [widget.state.isMarathi ? 'मंडी मॅप' : 'Mandi Map', widget.state.isMarathi ? 'मराठवाडा · 8 जिल्हे' : 'Marathwada · 8 Districts'],
+      [widget.state.isMarathi ? 'KisanAlert' : 'KisanAlert', widget.state.isMarathi ? 'नांदेड · $dateString' : 'Nanded · $dateString'],
+      [widget.state.isMarathi ? 'मंडी मॅप' : 'Mandi Map', widget.state.isMarathi ? 'मराठवाडा · 7 जिल्हे' : 'Marathwada · 7 Districts'],
       [widget.state.isMarathi ? 'AI अंदाज' : 'AI Prediction', widget.state.isMarathi ? '3 मॉडेल्स · Live Data' : '3 Models · Live Data'],
       [widget.state.isMarathi ? 'हवामान → नफा' : 'Weather → Profit', widget.state.isMarathi ? 'नांदेड · 18.39°N 77.31°E' : 'Nanded · 18.39°N 77.31°E'],
       [widget.state.isMarathi ? 'प्रोफाइल' : 'Profile', ''],

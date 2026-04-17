@@ -233,7 +233,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
             ...[
               ('Nanded',    '🌧️', rainNow, riskNow == 'HIGH', riskNow),
               ('Latur',     '⛅',  '8mm',   false,             'MED'),
-              ('Osmanabad', '☀️',  '0mm',   false,             'LOW'),
+
               ('Parbhani',  '⛈️', '45mm',  false,             'HIGH'),
               ('Hingoli',   '🌧️', '18mm',  false,             'MED'),
             ].map((d) {

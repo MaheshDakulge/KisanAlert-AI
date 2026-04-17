@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 // Use --dart-define=API_URL=https://your-cloud-run-url.run.app/api/v1 to override
 const String _baseUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'http://10.0.2.2:8000/api/v1', // 10.0.2.2 maps to localhost on Android emulator
+  defaultValue: 'http://127.0.0.1:8000/api/v1', // 127.0.0.1 maps to host via ADB reverse for physical devices
 );
 
 // ── Data Models ────────────────────────────────────────────────────────────────

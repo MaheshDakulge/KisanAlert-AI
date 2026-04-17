@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 log = logging.getLogger(__name__)
 
 # Load .env explicitly — resolve 3 levels up from src/alerts/
-ROOT_DIR = Path(__file__).resolve().parents[3]
+ROOT_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT_DIR / ".env")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")

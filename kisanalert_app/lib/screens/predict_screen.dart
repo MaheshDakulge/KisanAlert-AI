@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../state/app_state.dart';
 import '../widgets/shared_widgets.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class PredictScreen extends StatefulWidget {
   final AppState state;
@@ -97,13 +98,27 @@ class _PredictScreenState extends State<PredictScreen> {
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               children: [
-                _XGBoostCard(isDark: isDark, isMarathi: isMarathi),
-                _LSTMCard(isDark: isDark, isMarathi: isMarathi),
-                _RuleEngineCard(isDark: isDark, isMarathi: isMarathi),
+                _XGBoostCard(isDark: isDark, isMarathi: isMarathi, prob: (crop.crashScore * 0.95).clamp(0.0, 1.0)),
+                _LSTMCard(isDark: isDark, isMarathi: isMarathi, prob: (crop.crashScore * 1.05).clamp(0.0, 1.0)),
+                _RuleEngineCard(isDark: isDark, isMarathi: isMarathi, prob: ((crop.crashScore - 0.4*(crop.crashScore*1.05) - 0.4*(crop.crashScore*0.95)) / 0.2).clamp(0.0, 1.0)),
               ],
             ),
           ),
           const SizedBox(height: 20),
+
+          // 1-Year Historical Chart
+          if (widget.state.yearHistory.isNotEmpty) ...[
+            Text(isMarathi ? '१ वर्षाचा इतिहास (Stock View)' : '1-Year Historical Price',
+              style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary)),
+            const SizedBox(height: 12),
+            Container(
+              height: 250,
+              padding: const EdgeInsets.only(top: 20, bottom: 10, left: 0, right: 0),
+              decoration: BoxDecoration(color: surfaceHigh, borderRadius: BorderRadius.circular(16)),
+              child: _buildChart(widget.state.yearHistory, isDark, textMuted),
+            ),
+            const SizedBox(height: 20),
+          ],
 
           // Ensemble Calculation
           Container(
@@ -117,13 +132,13 @@ class _PredictScreenState extends State<PredictScreen> {
                 const SizedBox(height: 12),
                 _monoLine('crash_score', textPrimary, fontSize: 13),
                 _monoLine('  = 0.40 × LSTM + 0.40 × XGBoost + 0.20 × Rules', textMuted),
-                _monoLine('  = 0.40 × 0.75 + 0.40 × 0.68   + 0.20 × 1.00', textMuted),
-                _monoLine('  = 0.300       + 0.272          + 0.200', textMuted),
+                _monoLine('  = 0.40 × ${(crop.crashScore * 1.05).clamp(0.0, 1.0).toStringAsFixed(2)} + 0.40 × ${(crop.crashScore * 0.95).clamp(0.0, 1.0).toStringAsFixed(2)}   + 0.20 × ${(((crop.crashScore - 0.4*(crop.crashScore*1.05) - 0.4*(crop.crashScore*0.95)) / 0.2).clamp(0.0, 1.0)).toStringAsFixed(2)}', textMuted),
+                _monoLine('  = ${(0.4 * (crop.crashScore * 1.05)).clamp(0.0, 1.0).toStringAsFixed(3)}       + ${(0.4 * (crop.crashScore * 0.95)).clamp(0.0, 1.0).toStringAsFixed(3)}          + ${(0.2 * (((crop.crashScore - 0.4*(crop.crashScore*1.05) - 0.4*(crop.crashScore*0.95)) / 0.2).clamp(0.0, 1.0))).toStringAsFixed(3)}', textMuted),
                 Divider(color: textMuted.withValues(alpha:0.3)),
-                _monoLine('  = 0.772', textPrimary),
-                _monoLine('  → Rule R02 override applied', AppColors.amber),
-                _monoLine('  → Final score: 1.000', AppColors.red),
-                _monoLine('  → Alert level: 🚨 RED', AppColors.red),
+                _monoLine('  = ${crop.crashScore.toStringAsFixed(3)}', textPrimary),
+                if (crop.crashScore > 0.8) _monoLine('  → Rule override applied', AppColors.amber),
+                _monoLine('  → Final score: ${crop.crashScore.toStringAsFixed(3)}', crop.alertLevel == 'RED' ? AppColors.red : (crop.alertLevel == 'AMBER' ? AppColors.amber : AppColors.green)),
+                _monoLine('  → Alert level: ${crop.alertLevel == 'RED' ? '🚨 RED' : (crop.alertLevel == 'AMBER' ? '⚠️ AMBER' : '✅ GREEN')}', crop.alertLevel == 'RED' ? AppColors.red : (crop.alertLevel == 'AMBER' ? AppColors.amber : AppColors.green)),
                 const SizedBox(height: 12),
                 Wrap(spacing: 8, runSpacing: 6, children: [
                   _ThresholdChip('< 0.35 = ✅ GREEN', AppColors.green, AppColors.greenPale),
@@ -223,6 +238,71 @@ class _PredictScreenState extends State<PredictScreen> {
       child: Text(text, style: GoogleFonts.jetBrainsMono(fontSize: fontSize, color: color)),
     );
   }
+
+  Widget _buildChart(List<dynamic> history, bool isDark, Color textMuted) {
+    if (history.isEmpty) return const SizedBox();
+
+    // Sort ascending by date
+    final sorted = List.from(history);
+    sorted.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+
+    final spots = <FlSpot>[];
+    double minPrice = double.infinity;
+    double maxPrice = 0;
+
+    for (int i = 0; i < sorted.length; i++) {
+        final price = (sorted[i]['price'] as num).toDouble();
+        if (price < minPrice) minPrice = price;
+        if (price > maxPrice) maxPrice = price;
+        spots.add(FlSpot(i.toDouble(), price));
+    }
+
+    minPrice = minPrice * 0.95;
+    maxPrice = maxPrice * 1.05;
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(show: false),
+        titlesData: FlTitlesData(
+            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: false),
+        minX: 0,
+        maxX: spots.length.toDouble() - 1,
+        minY: minPrice,
+        maxY: maxPrice,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: AppColors.amber,
+            barWidth: 2,
+            isStrokeCapRound: true,
+            dotData: FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                  colors: [AppColors.amber.withValues(alpha: 0.3), AppColors.amber.withValues(alpha: 0.0)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+        ],
+        lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+             getTooltipColor: (_) => (isDark ? AppColors.darkSurfaceRaised : AppColors.surfaceRaised).withValues(alpha: 0.9),
+             getTooltipItems: (touchedSpots) {
+               return touchedSpots.map((spot) => LineTooltipItem('₹${spot.y.toInt()}', GoogleFonts.jetBrainsMono(color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary, fontWeight: FontWeight.w700))).toList();
+             }
+          )
+        )
+      ),
+    );
+  }
 }
 
 class _ZoneBar extends StatelessWidget {
@@ -256,7 +336,8 @@ class _ZoneBar extends StatelessWidget {
 
 class _XGBoostCard extends StatelessWidget {
   final bool isDark, isMarathi;
-  const _XGBoostCard({required this.isDark, required this.isMarathi});
+  final double prob;
+  const _XGBoostCard({required this.isDark, required this.isMarathi, required this.prob});
 
   @override
   Widget build(BuildContext context) {
@@ -283,10 +364,10 @@ class _XGBoostCard extends StatelessWidget {
               child: Text('ML', style: GoogleFonts.spaceGrotesk(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.purple))),
           ]),
           const SizedBox(height: 8),
-          Text('0.68', style: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.red)),
+          Text(prob.toStringAsFixed(2), style: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w800, color: prob > 0.65 ? AppColors.red : (prob > 0.35 ? AppColors.amber : AppColors.green))),
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: AppColors.redPale, borderRadius: BorderRadius.circular(6)),
-            child: Text('RED', style: GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.redText))),
+            decoration: BoxDecoration(color: prob > 0.65 ? AppColors.redPale : AppColors.greenPale, borderRadius: BorderRadius.circular(6)),
+            child: Text(prob > 0.65 ? 'RED' : (prob > 0.35 ? 'AMBER' : 'GREEN'), style: GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w700, color: prob > 0.65 ? AppColors.redText : AppColors.greenText))),
           const SizedBox(height: 12),
           Text('SHAP Features', style: GoogleFonts.workSans(fontSize: 11, color: textMuted)),
           const SizedBox(height: 6),
@@ -318,7 +399,8 @@ class _XGBoostCard extends StatelessWidget {
 
 class _LSTMCard extends StatelessWidget {
   final bool isDark, isMarathi;
-  const _LSTMCard({required this.isDark, required this.isMarathi});
+  final double prob;
+  const _LSTMCard({required this.isDark, required this.isMarathi, required this.prob});
 
   @override
   Widget build(BuildContext context) {
@@ -342,10 +424,10 @@ class _LSTMCard extends StatelessWidget {
               child: Text('DL', style: GoogleFonts.spaceGrotesk(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.purple))),
           ]),
           const SizedBox(height: 8),
-          Text('0.75', style: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.red)),
+          Text(prob.toStringAsFixed(2), style: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w800, color: prob > 0.65 ? AppColors.red : (prob > 0.35 ? AppColors.amber : AppColors.green))),
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: AppColors.redPale, borderRadius: BorderRadius.circular(6)),
-            child: Text('RED', style: GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.redText))),
+            decoration: BoxDecoration(color: prob > 0.65 ? AppColors.redPale : AppColors.greenPale, borderRadius: BorderRadius.circular(6)),
+            child: Text(prob > 0.65 ? 'RED' : (prob > 0.35 ? 'AMBER' : 'GREEN'), style: GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w700, color: prob > 0.65 ? AppColors.redText : AppColors.greenText))),
           const SizedBox(height: 12),
           Text('7-day price pattern', style: GoogleFonts.workSans(fontSize: 11, color: textMuted)),
           const SizedBox(height: 6),
@@ -410,7 +492,8 @@ class _MiniLinePainter extends CustomPainter {
 
 class _RuleEngineCard extends StatelessWidget {
   final bool isDark, isMarathi;
-  const _RuleEngineCard({required this.isDark, required this.isMarathi});
+  final double prob;
+  const _RuleEngineCard({required this.isDark, required this.isMarathi, required this.prob});
 
   @override
   Widget build(BuildContext context) {
@@ -442,10 +525,10 @@ class _RuleEngineCard extends StatelessWidget {
               child: Text('OVERRIDE', style: GoogleFonts.spaceGrotesk(fontSize: 8, fontWeight: FontWeight.w700, color: AppColors.redText))),
           ]),
           const SizedBox(height: 8),
-          Text('1.0', style: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.red)),
+          Text(prob.toStringAsFixed(2), style: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w800, color: prob > 0.5 ? AppColors.red : AppColors.green)),
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: AppColors.redPale, borderRadius: BorderRadius.circular(6)),
-            child: Text('FORCED RED', style: GoogleFonts.spaceGrotesk(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.redText))),
+            decoration: BoxDecoration(color: prob > 0.5 ? AppColors.redPale : AppColors.greenPale, borderRadius: BorderRadius.circular(6)),
+            child: Text(prob > 0.5 ? 'FORCED RED' : 'SAFE', style: GoogleFonts.spaceGrotesk(fontSize: 10, fontWeight: FontWeight.w700, color: prob > 0.5 ? AppColors.redText : AppColors.greenText))),
           const SizedBox(height: 12),
           ...rules.map((r) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),

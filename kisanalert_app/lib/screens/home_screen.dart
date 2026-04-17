@@ -97,7 +97,7 @@ class HomeScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Text(
-                state.isMarathi ? 'सर्व ८ मंडी पहा →' : 'View all 8 mandis →',
+                state.isMarathi ? 'सर्व ७ मंडी पहा →' : 'View all 7 mandis →',
                 style: GoogleFonts.workSans(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.green),
               ),
             ),
@@ -327,6 +327,10 @@ class _HeroAlertCard extends StatelessWidget {
     final textMuted = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
     final mspGap = crop.price - crop.msp;
 
+    final now = DateTime.now();
+    final monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final dateString = '${now.day} ${monthsEn[now.month - 1]} ${now.year}';
+
     return Container(
       decoration: BoxDecoration(
         color: surface,
@@ -340,7 +344,7 @@ class _HeroAlertCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('16 April 2026 · ${isMarathi ? "आजचा अंदाज" : "Today's Forecast"}',
+              Text('$dateString · ${isMarathi ? "आजचा अंदाज" : "Today's Forecast"}',
                 style: GoogleFonts.workSans(fontSize: 13, color: textMuted)),
               Row(children: [
                 const LiveDot(), const SizedBox(width: 6),
@@ -392,7 +396,7 @@ class _HeroAlertCard extends StatelessWidget {
           const SizedBox(height: 16),
           MarathiAIBox(
             marathiText: crop.message,
-            englishText: 'Do not sell ${crop.name} today. NAFED released stock + arrivals 65% up at Latur. Osmanabad paying ₹550 more — go there today.',
+            englishText: 'Live AI advisory currently available in Marathi: ${crop.message.split(".")[0]}. (Latur lead signals tracked).',
             isDark: isDark,
           ),
           const SizedBox(height: 16),

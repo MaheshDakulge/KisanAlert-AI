@@ -278,9 +278,9 @@ def load_clean_data(csv_path: Path = None) -> pd.DataFrame:
             df["cbot_weekly_change"] = 0.0
         else:
             # ffill any gaps
-            df["usd_inr"] = df["usd_inr"].ffill().bfill().fillna(83.0)
-            df["cbot_close"] = df["cbot_close"].ffill().bfill().fillna(1200.0)
-            df["cbot_weekly_change"] = df["cbot_weekly_change"].fillna(0.0)
+            df["usd_inr"] = pd.to_numeric(df["usd_inr"], errors="coerce").ffill().bfill().fillna(83.0)
+            df["cbot_close"] = pd.to_numeric(df["cbot_close"], errors="coerce").ffill().bfill().fillna(1200.0)
+            df["cbot_weekly_change"] = pd.to_numeric(df["cbot_weekly_change"], errors="coerce").fillna(0.0)
     except Exception as e:
         log.error("Historical Macro merge failed: %s", e)
         df["usd_inr"] = 83.0
@@ -288,15 +288,15 @@ def load_clean_data(csv_path: Path = None) -> pd.DataFrame:
         df["cbot_weekly_change"] = 0.0
 
 
-    log.info("━" * 60)
+    log.info("-" * 60)
     log.info("Phase 1 complete. Final shape: %s", df.shape)
-    log.info("Date range: %s → %s", df['date'].min().date(), df['date'].max().date())
-    log.info("modal_price  → min: ₹%.0f  max: ₹%.0f  mean: ₹%.0f",
+    log.info("Date range: %s to %s", df['date'].min().date(), df['date'].max().date())
+    log.info("modal_price  -> min: %.0f  max: %.0f  mean: %.0f",
              df['modal_price'].min(), df['modal_price'].max(), df['modal_price'].mean())
-    log.info("arrival_qty  → min: %.0f    max: %.0f",
+    log.info("arrival_qty  -> min: %.0f    max: %.0f",
              df['arrival_qty'].min(), df['arrival_qty'].max())
     log.info("Nulls: %d", df.isnull().sum().sum())
-    log.info("━" * 60)
+    log.info("-" * 60)
     print(df.info())
 
     return df
