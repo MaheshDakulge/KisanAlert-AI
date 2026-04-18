@@ -1,0 +1,106 @@
+# -*- coding: utf-8 -*-
+"""
+Ensemble Formula — Blueprint exact match
+crash_score = 0.4×LSTM + 0.4×XGBoost + 0.2×rule_score
+
+Component definitions:
+  xgb_prob   (0–1): XGBoost crash probability (soft-confirmed with yesterday's score)
+  lstm_prob  (0–1): LSTM temporal crash probability, or -1.0 sentinel if unavailable
+  rule_score (0–1): Deterministic Rule Engine output:
+                      1.0 → RED override triggered (arrival surge / CBOT crash / etc.)
+                      0.5 → AMBER override triggered
+                      0.0 → No rule fired
+
+Graceful degradation:
+  - If LSTM is unavailable (sentinel -1.0): method = "xgb_rule_only"
+    formula becomes: 0.67×XGB + 0.33×rule_score  (weights renormalised)
+  - If both LSTM and rule_score are zero: method = "xgb_only"
+"""
+
+import logging
+
+log = logging.getLogger(__name__)
+
+# Maps blueprint override_level strings → numeric rule_score
+_RULE_SCORE_MAP = {
+    "RED"  : 1.0,
+    "AMBER": 0.5,
+    "GREEN": 0.0,
+    None   : 0.0,
+}
+
+
+def override_to_rule_score(override_level: str | None) -> float:
+    """Convert Rule Engine override level string to a numeric score [0,1]."""
+    return _RULE_SCORE_MAP.get(override_level, 0.0)
+
+
+def ensemble_score(
+    xgb_prob    : float,
+    lstm_prob   : float,
+    rule_score  : float = 0.0,
+    xgb_weight  : float | None = None,
+    lstm_weight : float | None = None,
+    rule_weight : float | None = None,
+) -> tuple[float, str]:
+    """
+    Combine XGBoost, LSTM and Rule Engine into a single final crash score.
+
+    Blueprint formula:  crash_score = 0.4×LSTM + 0.4×XGB + 0.2×rule_score
+    GREEN < 0.35  |  AMBER 0.35–0.65  |  RED > 0.65
+
+    Args:
+        xgb_prob   : XGBoost crash probability in [0,1].
+        lstm_prob  : LSTM crash probability in [0,1], or -1.0 if unavailable.
+        rule_score : Numeric rule engine score: 1.0=RED, 0.5=AMBER, 0.0=none.
+        xgb_weight : Override α (defaults to config.ENSEMBLE_XGB_WEIGHT = 0.40).
+        lstm_weight: Override β (defaults to config.ENSEMBLE_LSTM_WEIGHT = 0.40).
+        rule_weight: Override γ (defaults to config.ENSEMBLE_RULE_WEIGHT = 0.20).
+
+    Returns:
+        (final_score, method_used)
+        method_used: "ensemble" | "xgb_rule_only" | "xgb_only"
+    """
+    import config
+
+    alpha = xgb_weight  if xgb_weight  is not None else config.ENSEMBLE_XGB_WEIGHT
+    beta  = lstm_weight if lstm_weight is not None else config.ENSEMBLE_LSTM_WEIGHT
+    gamma = rule_weight if rule_weight is not None else config.ENSEMBLE_RULE_WEIGHT
+
+    # Clamp inputs
+    xgb_prob   = float(min(max(xgb_prob,  0.0), 1.0))
+    rule_score = float(min(max(rule_score, 0.0), 1.0))
+
+    if lstm_prob < 0:
+        # ── LSTM unavailable — renormalise α and γ only ──────────────────
+        total = alpha + gamma
+        if total == 0:
+            log.warning("Ensemble: all weights are zero — defaulting to xgb_prob.")
+            return xgb_prob, "xgb_only"
+
+        alpha_n = alpha / total
+        gamma_n = gamma / total
+        final = alpha_n * xgb_prob + gamma_n * rule_score
+
+        log.info(
+            "Ensemble (xgb_rule_only): α=%.2f×xgb(%.4f) + γ=%.2f×rule(%.2f) = %.4f",
+            alpha_n, xgb_prob, gamma_n, rule_score, final
+        )
+        return final, "xgb_rule_only"
+
+    # ── Full 3-component ensemble ────────────────────────────────────────────
+    lstm_prob = float(min(max(lstm_prob, 0.0), 1.0))
+
+    # Renormalise in case weights don't sum to exactly 1.0
+    total   = alpha + beta + gamma
+    alpha_n = alpha / total
+    beta_n  = beta  / total
+    gamma_n = gamma / total
+
+    final = alpha_n * xgb_prob + beta_n * lstm_prob + gamma_n * rule_score
+
+    log.info(
+        "Ensemble: α=%.2f×xgb(%.4f) + β=%.2f×lstm(%.4f) + γ=%.2f×rule(%.2f) = %.4f",
+        alpha_n, xgb_prob, beta_n, lstm_prob, gamma_n, rule_score, final
+    )
+    return final, "ensemble"

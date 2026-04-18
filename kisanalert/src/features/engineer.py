@@ -208,6 +208,50 @@ def add_harvest_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_blue_signal_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Adds 9 features specifically for the BLUE (rise) signal model.
+    These features capture recovery momentum after a price dip.
+    """
+    # 1. up_days_streak_7
+    diff = df['modal_price'].diff()
+    is_up = (diff > 0).astype(int)
+    df['up_days_streak_7'] = is_up.rolling(7, min_periods=1).sum().fillna(0)
+
+    # 2. days_since_low_30
+    def get_days_since_low(window):
+        return len(window) - 1 - window.argmin() if len(window) > 0 else 0
+    df['days_since_low_30'] = df['modal_price'].rolling(30, min_periods=1).apply(get_days_since_low).fillna(0)
+
+    # 3. bounce_from_low_30 & 4. price_vs_30d_min
+    rolling_min_30 = df['modal_price'].rolling(30, min_periods=1).min()
+    denom = rolling_min_30.replace(0, np.nan)
+    df['bounce_from_low_30'] = (df['modal_price'] - rolling_min_30) / denom
+    df['price_vs_30d_min'] = (df['modal_price'] / denom) - 1
+    df['bounce_from_low_30'] = df['bounce_from_low_30'].fillna(0)
+    df['price_vs_30d_min'] = df['price_vs_30d_min'].fillna(0)
+
+    # 5. price_accel_3d (Change in velocity)
+    df['price_accel_3d'] = df['price_velocity'].diff(3).fillna(0)
+
+    # 6. price_change_14d
+    df['price_change_14d'] = df['modal_price'].pct_change(14).fillna(0)
+
+    # 7. cbot_momentum_7d & 8. cbot_momentum_14d
+    if 'cbot_price_inr' in df.columns:
+        df['cbot_momentum_7d'] = df['cbot_price_inr'].pct_change(7).fillna(0)
+        df['cbot_momentum_14d'] = df['cbot_price_inr'].pct_change(14).fillna(0)
+    else:
+        df['cbot_momentum_7d'] = 0.0
+        df['cbot_momentum_14d'] = 0.0
+
+    # 9. is_recovering (Current price > yesterday AND yesterday was low-ish)
+    ma_7 = df['modal_price'].rolling(7, min_periods=1).mean()
+    df['is_recovering'] = ((diff > 0) & (df['modal_price'].shift(1) < ma_7.shift(1))).astype(float)
+
+    return df
+
+
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     month       = integer 1-12   (Oct-Nov always lowest soybean prices)
@@ -335,6 +379,7 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     df = add_lead_lag_features(df)
     df = add_advanced_proxy_signals(df)
     df = add_cbot_features(df)
+    df = add_blue_signal_features(df)
     df = add_harvest_features(df)
     df = add_msp_gap(df)
     df = drop_warmup_rows(df)

@@ -112,7 +112,8 @@ def get_alert_history(
             .limit(limit)
             .execute()
         )
-        if not result.data or len(result.data) < 5:
+        
+        if not result.data:
             import os
             import pandas as pd
             import config

@@ -1,0 +1,11 @@
+# Pyrefly configuration for KisanAlert
+# Tells Pyrefly which Python interpreter and search paths to use.
+# Fixes all "Cannot find module src.*" warnings in the IDE.
+
+# Use the Python 3.12 installation where all project dependencies are installed.
+python_interpreter = "C:/Users/mahes/AppData/Local/Programs/Python/Python312/python.exe"
+
+# Project root — ensures `src.*` and `config` resolve as top-level packages.
+search_path = [
+    ".",
+]

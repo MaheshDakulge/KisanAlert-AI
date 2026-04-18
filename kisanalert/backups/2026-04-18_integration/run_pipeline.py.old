@@ -23,10 +23,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.StreamHandler(
-            stream=open(sys.stdout.fileno(), mode="w", encoding="utf-8", buffering=1,
-                        closefd=False)
-        ),
+        logging.StreamHandler(sys.stdout),
         logging.FileHandler(config.LOG_PIPELINE_FILE, encoding="utf-8"),
     ]
 )
@@ -79,31 +76,17 @@ def run() -> dict:
         log.error("❌ Model loading failed: %s", e)
         sys.exit(1)
 
-    _meta_cols = {"date", "label", "commodity", "district", "_daily_return", "_volatility_30d"}
-    _model_feature_cols = [c for c in df_features.columns if c not in _meta_cols
-                           and df_features[c].dtype in ["float64", "int64", "float32", "int32"]]
+    # ── Inference: most recent row ─────────────────────────────────────────────
+    from src.features.engineer import FEATURE_COLUMNS
 
     today_row   = df_features.iloc[-1]
     today_date  = today_row["date"]
     today_price = today_row["modal_price"]
-    
-    # Robust feature matching: only pass what the model was trained on
-    try:
-        model_expected = model.get_booster().feature_names
-        if model_expected is None:
-            model_expected = []
-        # Reindex to ensure order and presence (cast to list to satisfy static type checker)
-        X_today = df_features.reindex(columns=list(model_expected), fill_value=0.0).iloc[[-1]]
-        X_yesterday = None
-        if len(df_features) >= 2:
-            X_yesterday = df_features.reindex(columns=list(model_expected), fill_value=0.0).iloc[[-2]]
-        log.info("[Predict] Matching model features: %d expected, %d provided (filtered)", len(model_expected), len(_model_feature_cols))
-    except Exception as e:
-        log.warning("[Predict] Booster feature_names not found, falling back to all numeric features: %s", e)
-        X_today     = df_features[_model_feature_cols].iloc[[-1]] 
-        X_yesterday = None
-        if len(df_features) >= 2:
-            X_yesterday = df_features[_model_feature_cols].iloc[[-2]]
+    X_today     = df_features[FEATURE_COLUMNS].iloc[[-1]]   # shape (1, n_features)
+
+    X_yesterday = None
+    if len(df_features) >= 2:
+        X_yesterday = df_features[FEATURE_COLUMNS].iloc[[-2]]
 
     log.info("[Predict] Running inference on %s (₹%.0f/qtl)", today_date.date(), today_price)
 
@@ -153,8 +136,8 @@ def run() -> dict:
     except Exception as e:
         log.error("❌ Rule Engine failed: %s", e)
 
-    # ── Ensemble Formula (v2): 0.60×XGB + 0.30×LSTM + 0.10×rule ─────────────────
-    log.info("[Ensemble v2] XGB=%.4f  LSTM=%.4f  rule=%.2f", soft_score, lstm_prob, rule_score)
+    # ── Ensemble Formula: 0.4×XGB + 0.4×LSTM + 0.2×rule_score (blueprint exact) ───
+    log.info("[Ensemble] XGB=%.4f  LSTM=%.4f  rule=%.2f", soft_score, lstm_prob, rule_score)
     try:
         from src.models.ensemble import ensemble_score
         soft_score, ensemble_method = ensemble_score(
@@ -181,16 +164,18 @@ def run() -> dict:
     )
     from src.alerts.edge_handler import generate_safe_alert
 
-    features_row = df_features[_model_feature_cols].iloc[[-1]]
+    features_row = df_features[FEATURE_COLUMNS].iloc[[-1]]
     current_price = float(today_price)
     price_30d_max = float(df_features["modal_price"].tail(30).max())
     last_14_days_prices = df_features["modal_price"].tail(14)
+    farmer_past_alerts = []  # Assuming no prior history/onboarding mode for test
 
     alert = generate_safe_alert(
         features_row=features_row,
         current_price=current_price,
         price_30d_max=price_30d_max,
         recent_prices=last_14_days_prices,   # ← NEW: pass recent prices
+        farmer_history=farmer_past_alerts,    # ← NEW: farmer's alert count
         crop="Soybean",
         district="Nanded",
     )
@@ -210,35 +195,24 @@ def run() -> dict:
         log.warning("Trust badge logging skipped: %s", e)
 
     # ── Final console output ───────────────────────────────────────────────────
-    alert_lvl  = alert.get("alert_level", "AMBER")
-    alert_icon = {"RED": "[RED]", "GREEN": "[GREEN]", "BLUE": "[BLUE]"}.get(alert_lvl, "[AMBER]")
-    msg        = alert.get("message_marathi", alert.get("marathi_message", ""))
-    rise_score = alert.get("rise_score")
-    trend      = alert.get("trend_is_rising")
-    forecast   = alert.get("forecast_days", 7)
-    action     = alert.get("action", "")
-
-    # Safe print: encode to utf-8 bytes then write directly so Marathi text never
-    # triggers cp1252 UnicodeEncodeError on Windows terminals.
-    def _p(text: str):
-        sys.stdout.buffer.write((text + "\n").encode("utf-8", errors="replace"))
-        sys.stdout.buffer.flush()
-    sep = "=" * 50
-    _p(f"\n{sep}")
-    _p("  KisanAlert -- Daily Report")
-    _p(sep)
-    _p(f"  Date          : {today_date.date()}")
-    _p(f"  Crop          : {config.TARGET_COMMODITY}")
-    _p(f"  District      : {config.TARGET_DISTRICT}")
-    _p(f"  Price Today   : Rs.{today_price:,.0f}/qtl")
-    _p(f"  Crash Score   : {soft_score:.4f}  (XGB={prob_today:.4f})")
-    _p(f"  Rise Score    : {rise_score:.4f}" if rise_score is not None else "  Rise Score    : N/A (BLUE disabled)")
-    _p(f"  Trend Rising  : {'Yes (upward)' if trend else 'No (flat/down)'}")
-    _p(f"  Forecast Days : {forecast}")
-    _p(f"  Alert Level   : {alert_icon} {alert_lvl}")
-    _p(f"  Action        : {action}")
-    _p(f"  Message       : {msg}")
-    _p(sep)
+    print("\n" + "═" * 40)
+    print("=== KisanAlert — Daily Report ===")
+    print(f"Date        : {today_date.date()}")
+    print(f"Crop        : {config.TARGET_COMMODITY}")
+    print(f"District    : {config.TARGET_DISTRICT}")
+    print(f"Price Today : ₹{today_price:,.0f}/qtl")
+    print(f"Raw Prob    : {prob_today:.2f}")
+    print(f"Prev Prob   : {prob_yesterday:.2f}")
+    print(f"Soft Score  : {soft_score:.2f}")
+    alert_icon = alert.get("icon", "")
+    alert_lvl = alert.get("alert_level", "AMBER")
+    if not alert_icon:
+        alert_icon = {"RED": "🔴", "GREEN": "🟢", "BLUE": "🔵"}.get(alert_lvl, "🟡")
+    msg = alert.get("message_marathi", alert.get("marathi_message", ""))
+    
+    print(f"Alert Level : {alert_icon} {alert_lvl}")
+    print(f"Message     : {msg}")
+    print("=" * 40)
 
     # ── Phase 8: Offline Cache (SQLite) ─────────────────────────────────────────
     try:
@@ -256,7 +230,7 @@ def run() -> dict:
             price=today_price,
             crash_score=soft_score,
             alert_level=alert_lvl,
-            message=msg if isinstance(msg, str) else str(msg)
+            message=msg
         )
         log_pipeline_run(status="SUCCESS")
     except Exception as e:

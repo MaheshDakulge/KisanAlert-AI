@@ -1,0 +1,172 @@
+{
+  "timestamp": "2026-04-18T10:30:39.839652",
+  "best_strategy": "W10d \u00d7 0.5\u03c3",
+  "test_auc": 0.6972467423287095,
+  "test_f1": 0.38926174496644295,
+  "train_auc": 0.9916171447288381,
+  "valid_auc": 0.7400273224043716,
+  "features": [
+    "modal_price",
+    "arrival_qty",
+    "min_price",
+    "max_price",
+    "hingoli_price",
+    "latur_price",
+    "parbhani_price",
+    "surrounding_price",
+    "usd_inr",
+    "cbot_close",
+    "cbot_weekly_change",
+    "price_spread_ratio",
+    "price_velocity",
+    "price_trend_30d",
+    "arrival_ratio",
+    "price_vs_7d_avg",
+    "rain_7d_sum",
+    "temp_7d_avg",
+    "is_raining_today",
+    "weather_shock_flag",
+    "month",
+    "day_of_week",
+    "year_norm",
+    "price_wave_lag_score",
+    "acceleration",
+    "distance_from_min",
+    "trend_strength",
+    "drawdown_7",
+    "cbot_price_inr",
+    "cbot_7day_trend",
+    "days_from_harvest_start",
+    "msp_gap",
+    "up_days_streak_7",
+    "days_since_low_30",
+    "bounce_from_low_30",
+    "price_vs_30d_min",
+    "price_accel_3d",
+    "price_change_14d",
+    "cbot_momentum_7d",
+    "cbot_momentum_14d",
+    "is_recovering"
+  ],
+  "new_features_added": [
+    "up_days_streak_7",
+    "days_since_low_30",
+    "bounce_from_low_30",
+    "price_vs_30d_min",
+    "price_accel_3d",
+    "price_change_14d",
+    "is_recovering",
+    "cbot_momentum_7d",
+    "cbot_momentum_14d"
+  ],
+  "all_results": [
+    {
+      "strategy": "W7d \u00d7 0.5\u03c3",
+      "train_rate": 0.31179775280898875,
+      "train_auc": 0.9485693601765032,
+      "valid_auc": 0.7103425559947298,
+      "test_auc": 0.6836546349466776,
+      "test_f1": 0.5775401069518716,
+      "status": "ok"
+    },
+    {
+      "strategy": "W7d \u00d7 0.7\u03c3",
+      "train_rate": 0.19873595505617977,
+      "train_auc": 0.9213649300254255,
+      "valid_auc": 0.6976817042606517,
+      "test_auc": 0.6773333333333333,
+      "test_f1": 0.37168141592920356,
+      "status": "ok"
+    },
+    {
+      "strategy": "W7d \u00d7 0.85\u03c3",
+      "train_rate": 0.14536516853932585,
+      "train_auc": 0.9974595008713119,
+      "valid_auc": 0.8406130268199233,
+      "test_auc": 0.6256105006105006,
+      "test_f1": 0.2962962962962963,
+      "status": "ok"
+    },
+    {
+      "strategy": "W7d \u00d7 1.0\u03c3",
+      "train_rate": 0.10674157303370786,
+      "train_auc": 0.9892368007282357,
+      "valid_auc": 0.7811447811447813,
+      "test_auc": 0.631189948263119,
+      "test_f1": 0.3142857142857143,
+      "status": "ok"
+    },
+    {
+      "strategy": "W10d \u00d7 0.5\u03c3",
+      "train_rate": 0.30196629213483145,
+      "train_auc": 0.9916171447288381,
+      "valid_auc": 0.7400273224043716,
+      "test_auc": 0.6972467423287095,
+      "test_f1": 0.38926174496644295,
+      "status": "ok"
+    },
+    {
+      "strategy": "W10d \u00d7 0.7\u03c3",
+      "train_rate": 0.18117977528089887,
+      "train_auc": 0.9938403340114617,
+      "valid_auc": 0.8463046757164404,
+      "test_auc": 0.5821917808219178,
+      "test_f1": 0.2616822429906542,
+      "status": "ok"
+    },
+    {
+      "strategy": "W10d \u00d7 0.85\u03c3",
+      "train_rate": 0.12991573033707865,
+      "train_auc": 0.9826952860851166,
+      "valid_auc": 0.6945126945126945,
+      "test_auc": 0.6144782412287305,
+      "test_f1": 0.3368421052631579,
+      "status": "ok"
+    },
+    {
+      "strategy": "W10d \u00d7 1.0\u03c3",
+      "train_rate": 0.09129213483146068,
+      "train_auc": 0.991882653667816,
+      "valid_auc": 0.6898749398749399,
+      "test_auc": 0.7301113360323886,
+      "test_f1": 0.35714285714285715,
+      "status": "ok"
+    },
+    {
+      "strategy": "W14d \u00d7 0.5\u03c3",
+      "train_rate": 0.28581460674157305,
+      "train_auc": 0.9554985395693362,
+      "valid_auc": 0.6631962864721486,
+      "test_auc": 0.6601058201058201,
+      "test_f1": 0.3270440251572327,
+      "status": "ok"
+    },
+    {
+      "strategy": "W14d \u00d7 0.7\u03c3",
+      "train_rate": 0.16853932584269662,
+      "train_auc": 0.9783607826576578,
+      "valid_auc": 0.7395833333333334,
+      "test_auc": 0.6825505544683628,
+      "test_f1": 0.48484848484848486,
+      "status": "ok"
+    },
+    {
+      "strategy": "W14d \u00d7 0.85\u03c3",
+      "train_rate": 0.1172752808988764,
+      "train_auc": 0.997303721911785,
+      "valid_auc": 0.6776908023483366,
+      "test_auc": 0.6579016221873364,
+      "test_f1": 0.3333333333333333,
+      "status": "ok"
+    },
+    {
+      "strategy": "W14d \u00d7 1.0\u03c3",
+      "train_rate": 0.08848314606741572,
+      "train_auc": 0.9841636706043486,
+      "valid_auc": 0.7218279569892473,
+      "test_auc": 0.6886822194199245,
+      "test_f1": 0.3225806451612903,
+      "status": "ok"
+    }
+  ]
+}

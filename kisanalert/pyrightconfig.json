@@ -1,0 +1,19 @@
+{
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "pythonPath": "C:/Users/mahes/AppData/Local/Programs/Python/Python312/python.exe",
+  "venvPath": ".",
+  "extraPaths": [
+    "."
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/backups",
+    "**/data/raw",
+    "fix_auc*.py",
+    "combine_*.py",
+    "generate_sample_data.py"
+  ],
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "warning"
+}

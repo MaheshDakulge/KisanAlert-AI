@@ -162,3 +162,25 @@ ALERT_MESSAGES = {
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 # LOG_ALERTS_FILE and LOG_PIPELINE_FILE are handled by __getattr__ for dynamic paths.
+
+# ── v2 Model Paths (production — no leakage) ───────────────────────────────────
+CRASH_MODEL_PATH   = MODELS_DIR / "xgb_v3_best.json"       # AUC 0.76
+RISE_MODEL_PATH    = MODELS_DIR / "xgb_blue_signal.json"    # AUC 0.70
+
+# ── 4-Signal Alert Thresholds ──────────────────────────────────────────────────
+CRASH_THRESHOLD          = 0.65   # crash_score ≥ this → RED
+BLUE_THRESHOLD           = 0.60   # rise_score ≥ this (+ trend) → BLUE
+BLUE_SAFE_CRASH_CEIL     = 0.35   # BLUE only fires when crash risk is low
+PEAK_THRESHOLD           = 0.97   # price ≥ 97% of 30d max → GREEN
+LOW_RISK_CEILING         = 0.35   # alias for GREEN condition
+
+# ── Ensemble v2 Weights ─────────────────────────────────────────────────────────
+# v2 blueprint: crash = 0.60×XGB + 0.30×LSTM + 0.10×rule
+# (Previously 0.40/0.40/0.20 — updated to give XGB more weight after AUC fix)
+ENSEMBLE_XGB_WEIGHT  = 0.60
+ENSEMBLE_LSTM_WEIGHT = 0.30
+ENSEMBLE_RULE_WEIGHT = 0.10
+
+# ── Trust Badge Settings ────────────────────────────────────────────────────────
+VERIFY_WINDOW_DAYS           = 7     # days after prediction to check actual price
+SIGNIFICANT_PRICE_CHANGE_PCT = 3.0   # minimum % move for RED/BLUE to be "correct"

@@ -46,24 +46,30 @@ def init_db():
         log.error("Failed to initialize SQLite cache: %s", e)
 
 def save_alert_to_cache(alert: dict):
-    """Saves the generated alert dictionary to the local SQLite DB."""
+    """Saves the generated alert dictionary to the local SQLite DB.
+
+    Edge-case fallback alerts (market closed, data unavailable, onboarding)
+    may omit date/commodity/district — we fill sensible defaults so the
+    NOT NULL constraint never fires.
+    """
     init_db()
+    from datetime import datetime as _dt
     try:
         conn = sqlite3.connect(CACHE_DB_PATH)
         cursor = conn.cursor()
-        
-        date = alert.get("date")
-        commodity = alert.get("commodity")
-        district = alert.get("district")
-        level = alert.get("alert_level")
-        payload = json.dumps(alert, ensure_ascii=False)
-        
-        # Insert or replace (update) the payload for the day
+
+        # Safe defaults — edge-case alerts may not carry all fields
+        date      = alert.get("date") or alert.get("prediction_date") or _dt.now().strftime("%Y-%m-%d")
+        commodity = alert.get("commodity") or alert.get("crop") or config.TARGET_COMMODITY
+        district  = alert.get("district") or config.TARGET_DISTRICT
+        level     = alert.get("alert_level") or "AMBER"
+        payload   = json.dumps(alert, ensure_ascii=False, default=str)
+
         cursor.execute('''
         INSERT OR REPLACE INTO daily_alerts (date, commodity, district, alert_level, payload_json)
         VALUES (?, ?, ?, ?, ?)
         ''', (date, commodity, district, level, payload))
-        
+
         conn.commit()
         conn.close()
         log.info("💾 Saved alert to SQLite offline cache for %s (%s)", date, commodity)
