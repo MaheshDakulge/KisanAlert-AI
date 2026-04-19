@@ -31,6 +31,7 @@ class _KisanAlertAppState extends State<KisanAlertApp> {
   void initState() {
     super.initState();
     _appState.addListener(() => setState(() {}));
+    _appState.startAutoRefresh();
   }
 
   @override
@@ -61,6 +62,19 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  Offset _fabPosition = Offset.zero;
+  bool _fabInitialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_fabInitialized) {
+      final size = MediaQuery.of(context).size;
+      _fabPosition = Offset(size.width - 80, size.height - 140);
+      _fabInitialized = true;
+    }
+  }
+
   void _openVoice() {
     showDialog(
       context: context,
@@ -127,9 +141,11 @@ class _AppShellState extends State<AppShell> {
       [widget.state.isMarathi ? 'प्रोफाइल' : 'Profile', ''],
     ];
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: bg,
+          body: SafeArea(
         bottom: false,
         child: Column(
           children: [
@@ -166,10 +182,22 @@ class _AppShellState extends State<AppShell> {
           ],
         ),
       ),
-      // Bottom nav + FAB
-      floatingActionButton: _GreenFAB(onTap: _openVoice),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
+      // Bottom nav
       bottomNavigationBar: _BottomNav(state: widget.state, isDark: isDark),
+    ),
+        Positioned(
+          left: _fabPosition.dx,
+          top: _fabPosition.dy,
+          child: GestureDetector(
+            onPanUpdate: (details) {
+              setState(() {
+                _fabPosition += details.delta;
+              });
+            },
+            child: _GreenFAB(onTap: _openVoice),
+          ),
+        ),
+      ],
     );
   }
 }

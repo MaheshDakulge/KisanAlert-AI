@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../data/app_data.dart';
+import 'dart:async';
 class AppState extends ChangeNotifier {
   // Language
   bool _isMarathi = true;
@@ -41,6 +42,14 @@ class AppState extends ChangeNotifier {
 
   List<dynamic> _yearHistory = [];
   List<dynamic> get yearHistory => _yearHistory;
+
+  ForecastData? _forecast;
+  ForecastData? get forecast => _forecast;
+
+  AccuracyStats? _accuracyStats;
+  AccuracyStats? get accuracyStats => _accuracyStats;
+
+  Timer? _weatherTimer;
 
   AppState() {
     fetchData();
@@ -167,6 +176,9 @@ class AppState extends ChangeNotifier {
       } else {
         _currentStories = [];
       }
+      _forecast = await ApiService.getMultiDayForecast(_activeCrop);
+      _accuracyStats = await ApiService.getAccuracyStats(days: 30);
+
 
     } catch (e) {
       _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'Network error — check backend.', msp: 0);
@@ -175,10 +187,25 @@ class AppState extends ChangeNotifier {
       _currentForecast = [];
       _yearHistory = [];
       _currentStories = [];
+      _forecast = null;
+      _accuracyStats = null;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  void startAutoRefresh() {
+    _weatherTimer?.cancel();
+    _weatherTimer = Timer.periodic(const Duration(hours: 1), (_) {
+      fetchData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _weatherTimer?.cancel();
+    super.dispose();
   }
 
   int _getDistance(String district) {

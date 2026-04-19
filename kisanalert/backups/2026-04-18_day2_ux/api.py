@@ -14,8 +14,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import os
-from src.forecasting.multi_day_forecast import register_forecast_endpoint
-from src.voice.gemini_voice import register_gemini_endpoint
+from google import genai
 
 # Import Supabase client
 from src.supabase_client import get_supabase
@@ -47,8 +46,6 @@ class AlertResponse(BaseModel):
     district: str
     price: float
     crash_score: float
-    rise_score: Optional[float] = 0.0
-    trend_is_rising: Optional[bool] = False
     alert_level: str
     message: str
     created_at: Optional[str] = None
@@ -87,10 +84,7 @@ def get_latest_alert(
         if not result.data:
             raise HTTPException(status_code=404, detail=f"No alerts found for {commodity} in {district}.")
             
-        alert = result.data[0]
-        alert["rise_score"] = alert.get("rise_score", 0.0)
-        alert["trend_is_rising"] = alert.get("trend_is_rising", False)
-        return alert
+        return result.data[0]
         
     except Exception as e:
         log.error(f"Error fetching alert from Supabase: {e}")
@@ -475,8 +469,4 @@ def get_agri_news():
         ]
     except Exception as e:
         log.error(f"News fetch failed: {e}")
-        return []
-
-# ── Register new Day 2 endpoints ────────────────────────────────────────────────
-register_forecast_endpoint(app)
-register_gemini_endpoint(app)
+        return []  # Fail gracefully — news is non-critical

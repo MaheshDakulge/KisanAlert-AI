@@ -239,8 +239,16 @@ def generate_safe_alert(
         log.info("Edge case 1: %s", reason)
         cached = get_last_alert()
         if cached:
-            cached["notice_marathi"] = f"📅 आज बाजार बंद आहे ({reason}). काल चे अलर्ट दाखवत आहोत."
-            cached["notice_english"] = f"📅 Market closed today ({reason}). Showing yesterday's alert."
+            closed_msg_mr = f"📅 आज बाजार बंद आहे ({reason}). कालचे अलर्ट: "
+            closed_msg_en = f"📅 Market closed ({reason}). Yesterday's alert: "
+            
+            cached["notice_marathi"] = closed_msg_mr
+            cached["notice_english"] = closed_msg_en
+            
+            # OVERRIDE the main message so the UI natively displays it in the Hero Card!
+            cached["message_marathi"] = closed_msg_mr + cached.get("message_marathi", cached.get("marathi_message", ""))
+            cached["message_english"] = closed_msg_en + cached.get("message_english", cached.get("english_message", ""))
+            
             cached["market_status"] = "closed"
             return cached
         return {

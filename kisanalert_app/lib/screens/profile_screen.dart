@@ -110,7 +110,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             childAspectRatio: 1.7,
             children: [
               _StatCard(isMarathi ? 'मिळालेले अलर्ट' : 'Alerts received', '47', AppColors.greenPale, AppColors.greenText, isDark),
-              _StatCard(isMarathi ? 'पकडलेले क्रॅश' : 'Crashes caught', '8/10', AppColors.greenPale, AppColors.greenText, isDark),
+              _StatCard(
+                isMarathi ? 'पकडलेले क्रॅश' : 'Crashes caught',
+                widget.state.accuracyStats != null ? '${widget.state.accuracyStats!.correct}/${widget.state.accuracyStats!.total}' : '0/0',
+                AppColors.greenPale, AppColors.greenText, isDark
+              ),
               _StatCard(isMarathi ? 'वाचवलेले पैसे' : 'Money saved', '₹1.2L', AppColors.greenPale, AppColors.greenText, isDark),
               _StatCard(isMarathi ? 'अलर्ट स्ट्रीक 🔥' : 'Alert streak 🔥', '23 days', AppColors.amberPale, AppColors.amberText, isDark),
             ],
@@ -422,7 +426,7 @@ class _PulsingMicState extends State<_PulsingMic> with SingleTickerProviderState
           child: Stack(alignment: Alignment.center, children: [
             for (final r in [(_ring1, 0.35), (_ring2, 0.20), (_ring3, 0.10)])
               Opacity(
-                opacity: (1 - r.$1.value) * r.$2 * 10,
+                opacity: ((1 - r.$1.value) * r.$2 * 10).clamp(0.0, 1.0),
                 child: Container(
                   width: 120 + r.$1.value * 40,
                   height: 120 + r.$1.value * 40,

@@ -11,6 +11,7 @@ Color signalColor(String level, bool isDark) {
     case 'RED': return isDark ? AppColors.darkRedLight : AppColors.red;
     case 'AMBER': return isDark ? AppColors.darkAmberLight : AppColors.amber;
     case 'GREEN': return isDark ? AppColors.darkGreenLight : AppColors.green;
+    case 'BLUE': return isDark ? AppColors.darkBlueLight : AppColors.blue;
     case 'BEST': return isDark ? AppColors.darkGreenLight : AppColors.green;
     default: return isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
   }
@@ -21,6 +22,7 @@ Color signalBgColor(String level, bool isDark) {
     case 'RED': return isDark ? AppColors.red.withValues(alpha: 0.15) : AppColors.redPale;
     case 'AMBER': return isDark ? AppColors.amber.withValues(alpha: 0.15) : AppColors.amberPale;
     case 'GREEN': return isDark ? AppColors.green.withValues(alpha: 0.15) : AppColors.greenPale;
+    case 'BLUE': return isDark ? AppColors.blue.withValues(alpha: 0.15) : AppColors.bluePale;
     case 'BEST': return isDark ? AppColors.green.withValues(alpha: 0.2) : AppColors.greenPale;
     default: return isDark ? AppColors.darkSurfaceRaised : AppColors.surfaceRaised;
   }
@@ -286,7 +288,7 @@ class SignalChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = signalBgColor(level, isDark);
     final fg = signalColor(level, isDark);
-    final dot = level == 'RED' ? '🔴' : level == 'AMBER' ? '🟡' : '🟢';
+    final dot = level == 'RED' ? '🔴' : level == 'BLUE' ? '🔵' : level == 'AMBER' ? '🟡' : '🟢';
     return GestureDetector(
       onTap: onTap,
       child: Container(

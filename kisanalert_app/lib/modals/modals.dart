@@ -312,10 +312,13 @@ class MandiDetailSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                AlertBadge(
-                  level: mandi.signal,
-                  label: mandi.signal,
-                  isDark: isDark,
+                SizedBox(
+                  width: 100,
+                  child: AlertBadge(
+                    level: mandi.signal,
+                    label: mandi.signal == 'BLUE' ? 'HOLD' : mandi.signal,
+                    isDark: isDark,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 GestureDetector(onTap: onClose, child: Icon(Icons.close, color: textMuted)),
@@ -356,9 +359,11 @@ class MandiDetailSheet extends StatelessWidget {
                           level: mandi.signal,
                           label: mandi.signal == 'GREEN'
                               ? (isMarathi ? '✅ GREEN — इथे विकणे सर्वोत्तम' : '✅ GREEN — Best day to sell here')
-                              : mandi.signal == 'RED'
-                                  ? (isMarathi ? '🚨 RED — टाळा' : '🚨 RED — Avoid')
-                                  : (isMarathi ? '⚠️ AMBER — सावध राहा' : '⚠️ AMBER — Be careful'),
+                              : mandi.signal == 'BLUE'
+                                  ? (isMarathi ? '🔵 BLUE — थांबा, भाव वाढणार' : '🔵 BLUE — Hold & wait')
+                                  : mandi.signal == 'RED'
+                                      ? (isMarathi ? '🚨 RED — टाळा' : '🚨 RED — Avoid')
+                                      : (isMarathi ? '⚠️ AMBER — भाव स्थिर' : '⚠️ AMBER — Farmer\'s choice'),
                           isDark: isDark,
                         ),
                         const SizedBox(height: 12),

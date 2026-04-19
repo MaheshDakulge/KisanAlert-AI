@@ -62,10 +62,12 @@ class _PredictScreenState extends State<PredictScreen> {
                   AlertBadge(
                     level: crop.alertLevel,
                     label: crop.alertLevel == 'RED'
-                        ? '🚨 RED — Crash expected 24-48 hours'
-                        : crop.alertLevel == 'AMBER'
-                            ? '⚠️ AMBER — Watch carefully'
-                            : '✅ GREEN — Safe to sell',
+                        ? '🚨 RED — Don\'t sell (Avoid loss)'
+                        : crop.alertLevel == 'BLUE'
+                            ? '🔵 BLUE — Hold & wait (Earn more)'
+                            : crop.alertLevel == 'AMBER'
+                                ? '⚠️ AMBER — Farmer\'s choice'
+                                : '✅ GREEN — At peak, sell now',
                     isDark: isDark,
                   ),
                   const SizedBox(height: 12),
@@ -137,8 +139,8 @@ class _PredictScreenState extends State<PredictScreen> {
                 Divider(color: textMuted.withValues(alpha:0.3)),
                 _monoLine('  = ${crop.crashScore.toStringAsFixed(3)}', textPrimary),
                 if (crop.crashScore > 0.8) _monoLine('  → Rule override applied', AppColors.amber),
-                _monoLine('  → Final score: ${crop.crashScore.toStringAsFixed(3)}', crop.alertLevel == 'RED' ? AppColors.red : (crop.alertLevel == 'AMBER' ? AppColors.amber : AppColors.green)),
-                _monoLine('  → Alert level: ${crop.alertLevel == 'RED' ? '🚨 RED' : (crop.alertLevel == 'AMBER' ? '⚠️ AMBER' : '✅ GREEN')}', crop.alertLevel == 'RED' ? AppColors.red : (crop.alertLevel == 'AMBER' ? AppColors.amber : AppColors.green)),
+                _monoLine('  → Final score: ${crop.crashScore.toStringAsFixed(3)}', crop.alertLevel == 'RED' ? AppColors.red : crop.alertLevel == 'BLUE' ? AppColors.blue : (crop.alertLevel == 'AMBER' ? AppColors.amber : AppColors.green)),
+                _monoLine('  → Alert level: ${crop.alertLevel == 'RED' ? '🚨 RED' : crop.alertLevel == 'BLUE' ? '🔵 BLUE' : (crop.alertLevel == 'AMBER' ? '⚠️ AMBER' : '✅ GREEN')}', crop.alertLevel == 'RED' ? AppColors.red : crop.alertLevel == 'BLUE' ? AppColors.blue : (crop.alertLevel == 'AMBER' ? AppColors.amber : AppColors.green)),
                 const SizedBox(height: 12),
                 Wrap(spacing: 8, runSpacing: 6, children: [
                   _ThresholdChip('< 0.35 = ✅ GREEN', AppColors.green, AppColors.greenPale),
@@ -176,43 +178,48 @@ class _PredictScreenState extends State<PredictScreen> {
           Text(isMarathi ? 'Historical Accuracy · इतिहास तपासणी' : 'Historical Accuracy',
             style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary)),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: AppColors.greenPale, borderRadius: BorderRadius.circular(8)),
-                child: Text('8 out of 10 crashes caught', style: GoogleFonts.workSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.greenText))),
-              const SizedBox(width: 8),
-              Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: AppColors.bluePale, borderRadius: BorderRadius.circular(8)),
-                child: Text('2.4 days advance warning', style: GoogleFonts.workSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.blueText))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...[
-            (true, 'Sep 2025', 'Soybean crash', 'Caught 2 days early', 'NAFED release signal fired Sep 13, crash Sep 15'),
-            (true, 'Oct 2024', 'Cotton dip', 'Caught 4 days early', 'Arrival ratio 2.1× + Kharif season + rain signal'),
-            (true, 'Dec 2024', 'Onion crash', 'Caught 3 days early', 'NAFED stock + price velocity > 5%/day'),
-            (false, 'Mar 2024', 'Turmeric drop', 'Missed ⚠️', 'Sudden buyer withdrawal — no signal available'),
-          ].map((item) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(12)),
-            child: Row(
+          if (widget.state.accuracyStats == null)
+             Text(isMarathi ? 'लोड होत आहे...' : 'Loading accuracy data...', style: GoogleFonts.workSans(color: textMuted))
+          else ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Text(item.$1 ? '✅' : '⚠️', style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${item.$2} · ${item.$3} · ${item.$4}',
-                    style: GoogleFonts.workSans(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary)),
-                  Text(item.$5, style: GoogleFonts.workSans(fontSize: 11, color: textMuted)),
-                ])),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: widget.state.accuracyStats!.accuracy >= 0.7 ? AppColors.greenPale : AppColors.amberPale,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: widget.state.accuracyStats!.accuracy >= 0.7 ? AppColors.green.withValues(alpha: 0.3) : AppColors.amber.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    isMarathi
+                        ? '${(widget.state.accuracyStats!.accuracy * 100).toStringAsFixed(0)}% अचूकता'
+                        : '${(widget.state.accuracyStats!.accuracy * 100).toStringAsFixed(0)}% accuracy',
+                    style: GoogleFonts.workSans(fontSize: 13, fontWeight: FontWeight.w600, color: widget.state.accuracyStats!.accuracy >= 0.7 ? AppColors.greenText : AppColors.amberText),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppColors.bluePale, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.blue.withValues(alpha: 0.3))),
+                  child: Text(isMarathi ? '२.४ दिवसांची आगाऊ सूचना' : '2.4 days advance warning',
+                    style: GoogleFonts.workSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.blueText),
+                  ),
+                ),
               ],
             ),
-          )),
+            const SizedBox(height: 12),
+            Text(
+              isMarathi
+                  ? '${widget.state.accuracyStats!.correct} / ${widget.state.accuracyStats!.total} अंदाज बरोबर'
+                  : '${widget.state.accuracyStats!.correct} / ${widget.state.accuracyStats!.total} predictions correct',
+              style: GoogleFonts.workSans(fontSize: 13, color: textMuted),
+            ),
+          ],
           const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            _MetricChip('AUC: 0.72', isDark), _MetricChip('F1: 0.68', isDark),
-            _MetricChip('Recall: 0.76', isDark), _MetricChip('Precision: 0.71', isDark),
+            _MetricChip('AUC: 0.76', isDark), _MetricChip('F1: 0.74', isDark),
+            _MetricChip('Recall: 0.81', isDark), _MetricChip('Precision: 0.73', isDark),
           ]),
           const SizedBox(height: 20),
 
@@ -262,12 +269,51 @@ class _PredictScreenState extends State<PredictScreen> {
 
     return LineChart(
       LineChartData(
-        gridData: FlGridData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          drawHorizontalLine: true,
+          getDrawingHorizontalLine: (value) => FlLine(color: textMuted.withValues(alpha: 0.15), strokeWidth: 1),
+          getDrawingVerticalLine: (value) => FlLine(color: textMuted.withValues(alpha: 0.15), strokeWidth: 1),
+        ),
         titlesData: FlTitlesData(
-            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 45,
+                getTitlesWidget: (value, meta) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4.0),
+                    child: Text('₹${value.toInt()}', style: GoogleFonts.workSans(color: textMuted, fontSize: 10)),
+                  );
+                },
+              ),
+            ),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 24,
+                interval: (spots.length / 5).clamp(1.0, 9999.0).toDouble(), // Evenly spaced labels
+                getTitlesWidget: (value, meta) {
+                  int index = value.toInt();
+                  if (index < 0 || index >= sorted.length) return const SizedBox();
+                  String dateStr = sorted[index]['date'];
+                  try {
+                    final dt = DateTime.parse(dateStr);
+                    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: Text('${months[dt.month - 1]} ${dt.year}', 
+                        style: GoogleFonts.workSans(color: textMuted, fontSize: 10)),
+                    );
+                  } catch (e) {
+                    return const SizedBox();
+                  }
+                },
+              ),
+            ),
         ),
         borderData: FlBorderData(show: false),
         minX: 0,
@@ -278,14 +324,14 @@ class _PredictScreenState extends State<PredictScreen> {
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: AppColors.amber,
+            color: AppColors.blue,
             barWidth: 2,
             isStrokeCapRound: true,
-            dotData: FlDotData(show: false),
+            dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
               gradient: LinearGradient(
-                  colors: [AppColors.amber.withValues(alpha: 0.3), AppColors.amber.withValues(alpha: 0.0)],
+                  colors: [AppColors.blue.withValues(alpha: 0.2), AppColors.blue.withValues(alpha: 0.0)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
               ),

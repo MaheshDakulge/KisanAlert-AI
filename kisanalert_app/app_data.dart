@@ -13,8 +13,6 @@ class CropData {
   final String name;
   final double price;
   final double crashScore;
-  final double riseScore;
-  final bool trendIsRising;
   final String alertLevel;
   final String message;
   final double msp;
@@ -23,96 +21,10 @@ class CropData {
     required this.name,
     required this.price,
     required this.crashScore,
-    this.riseScore = 0.0,
-    this.trendIsRising = false,
     required this.alertLevel,
     required this.message,
     required this.msp,
   });
-}
-
-class ForecastPoint {
-  final String date;
-  final double price;
-  final bool isActual;
-  ForecastPoint({required this.date, required this.price, required this.isActual});
-}
-
-class ForecastPredicted {
-  final String date;
-  final double predictedPrice;
-  final double confidence;
-  ForecastPredicted({
-    required this.date,
-    required this.predictedPrice,
-    required this.confidence,
-  });
-}
-
-class ForecastData {
-  final double currentPrice;
-  final String currentDate;
-  final List<ForecastPoint> past7Days;
-  final List<ForecastPredicted> next10Days;
-  final double day3Predicted;
-  final double day3ChangePct;
-  final double day10Predicted;
-  final double day10ChangePct;
-  final String trend;
-
-  ForecastData({
-    required this.currentPrice,
-    required this.currentDate,
-    required this.past7Days,
-    required this.next10Days,
-    required this.day3Predicted,
-    required this.day3ChangePct,
-    required this.day10Predicted,
-    required this.day10ChangePct,
-    required this.trend,
-  });
-
-  factory ForecastData.fromJson(Map<String, dynamic> j) {
-    return ForecastData(
-      currentPrice: (j['current_price'] as num).toDouble(),
-      currentDate: j['current_date'] ?? '',
-      past7Days: ((j['past_7_days'] as List?) ?? [])
-          .map((p) => ForecastPoint(
-                date: p['date'],
-                price: (p['price'] as num).toDouble(),
-                isActual: true,
-              ))
-          .toList(),
-      next10Days: ((j['next_10_days'] as List?) ?? [])
-          .map((p) => ForecastPredicted(
-                date: p['date'],
-                predictedPrice: (p['predicted_price'] as num).toDouble(),
-                confidence: (p['confidence'] as num).toDouble(),
-              ))
-          .toList(),
-      day3Predicted: (j['day_3_predicted'] as num?)?.toDouble() ?? 0,
-      day3ChangePct: (j['day_3_change_pct'] as num?)?.toDouble() ?? 0,
-      day10Predicted: (j['day_10_predicted'] as num?)?.toDouble() ?? 0,
-      day10ChangePct: (j['day_10_change_pct'] as num?)?.toDouble() ?? 0,
-      trend: j['trend'] ?? 'stable',
-    );
-  }
-}
-
-class AccuracyStats {
-  final int total;
-  final int correct;
-  final double accuracy;
-  AccuracyStats({required this.total, required this.correct, required this.accuracy});
-
-  factory AccuracyStats.fromJson(Map<String, dynamic> j) {
-    final stats = j['stats'] ?? j;
-    return AccuracyStats(
-      total: (stats['total'] as num?)?.toInt() ?? 0,
-      correct: (stats['correct'] as num?)?.toInt() ?? 0,
-      accuracy: (stats['accuracy'] as num?)?.toDouble() ?? 0.0,
-    );
-  }
 }
 
 class MandiData {
@@ -189,7 +101,39 @@ class CommunityStory {
   });
 }
 
+class AccuracyStats {
+  final int total;
+  final int correct;
+  final double accuracy;
+  final String badgeMarathi;
+  final String badgeEnglish;
+  final List<RecentPrediction> recent;
 
+  AccuracyStats({
+    required this.total,
+    required this.correct,
+    required this.accuracy,
+    required this.badgeMarathi,
+    required this.badgeEnglish,
+    required this.recent,
+  });
+}
+
+class RecentPrediction {
+  final String dateStr;
+  final String cropContext;
+  final String message;
+  final String result;
+  final bool isCorrect;
+
+  RecentPrediction({
+    required this.dateStr,
+    required this.cropContext,
+    required this.message,
+    required this.result,
+    required this.isCorrect,
+  });
+}
 
 // ── Static Data ────────────────────────────────────────────────────────────────
 
@@ -275,31 +219,6 @@ class ApiService {
         Uri.parse('$rootUrl/accuracy?crop=$commodity&days=180'),
       ).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) return json.decode(res.body);
-    } catch (_) {}
-    return null;
-  }
-
-  static Future<ForecastData?> getMultiDayForecast(String commodity) async {
-    try {
-      final res = await http.get(
-        Uri.parse('$_baseUrl/forecast/multi-day?commodity=$commodity'),
-      ).timeout(const Duration(seconds: 8));
-      if (res.statusCode == 200) {
-        return ForecastData.fromJson(json.decode(res.body));
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  static Future<AccuracyStats?> getAccuracyStats({int days = 30}) async {
-    try {
-      final rootUrl = _baseUrl.replaceAll('/api/v1', '');
-      final res = await http.get(
-        Uri.parse('$rootUrl/accuracy?days=$days'),
-      ).timeout(const Duration(seconds: 5));
-      if (res.statusCode == 200) {
-        return AccuracyStats.fromJson(json.decode(res.body));
-      }
     } catch (_) {}
     return null;
   }

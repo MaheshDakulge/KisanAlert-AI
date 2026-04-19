@@ -142,7 +142,7 @@ if weather_df is None or len(weather_df) < 100:
         })
 
         # Fill NaN from API with forward-fill
-        weather_raw = weather_raw.fillna(method="ffill").fillna(method="bfill")
+        weather_raw = weather_raw.ffill().bfill()
 
         ok(f"Fetched {len(weather_raw):,} daily weather rows")
         info(f"Date range: {weather_raw['date'].min().date()} → {weather_raw['date'].max().date()}")
@@ -162,7 +162,7 @@ if weather_df is None or len(weather_df) < 100:
     banner("STEP 3: Computing weather features", C.YELLOW)
 
     df_w = weather_raw.sort_values("date").reset_index(drop=True)
-    df_w = df_w.set_index("date").asfreq("D").fillna(method="ffill").fillna(method="bfill")
+    df_w = df_w.set_index("date").asfreq("D").ffill().bfill()
     df_w = df_w.reset_index()
 
     df_w["rain_7d_sum"] = (
@@ -276,7 +276,7 @@ for m, val in monthly.items():
                    11:"Nov", 12:"Dec"}
     bar = "█" * int(val / 5)
     peak = " ← MONSOON" if m in [6, 7, 8, 9] else ""
-    print(f"    {month_names[m]}: {C.CYAN}{bar}{C.R} {val:.1f}mm{peak}")
+    print(f"    {month_names[int(str(m))]}: {C.CYAN}{bar}{C.R} {val:.1f}mm{peak}")
 
 
 # ═══════════════════════════════════════════════════════════════════
