@@ -228,4 +228,19 @@ class AppState extends ChangeNotifier {
   }
 
   String t(String mr, String en) => _isMarathi ? mr : en;
+
+  // ── Farmer session ──────────────────────────────────────────────
+  String? farmerId;
+  String? farmerName;
+  String? farmerPhone;
+
+  Future<void> login(String id, String name, String phone) async {
+    farmerId   = id;
+    farmerName = name;
+    farmerPhone = phone;
+    notifyListeners();
+    await fetchData();
+  }
+
+  bool get isLoggedIn => farmerId != null && farmerId!.isNotEmpty;
 }

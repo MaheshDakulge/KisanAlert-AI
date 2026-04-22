@@ -303,4 +303,18 @@ class ApiService {
     } catch (_) {}
     return null;
   }
+
+  /// Fetches the Gemini-powered structured daily briefing for the Advisor screen.
+  /// Returns: {trend, decision, ncdex, profit_tip, signal_emoji, alert_level, price, source}
+  static Future<Map<String, dynamic>?> getGeminiAdvisory(String commodity) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/gemini/advisory?commodity=$commodity&district=Nanded'),
+      ).timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        return json.decode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
 }

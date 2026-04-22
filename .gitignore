@@ -48,3 +48,7 @@ data/cache/
 data/processed/
 *.sqlite3
 *.db
+
+# Secrets
+firebase-adminsdk.json
+google-services.json
