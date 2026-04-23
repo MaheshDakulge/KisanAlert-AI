@@ -38,19 +38,20 @@ def _job_fetch_futures():
     """Fetch NCDEX/MCX futures for all 3 crops and save to offline cache."""
     log.info("[Scheduler] 3:35 PM — Fetching NCDEX/MCX futures...")
     try:
-        from src.data.ncdex_fetcher import get_futures_data
+        from src.data.ncdex_fetcher import fetch_ncdex_futures, get_futures_signal
         from src.data.offline_cache import load_cache, save_cache
 
         for crop in _CROPS:
             try:
-                futures = get_futures_data(crop)
+                futures = fetch_ncdex_futures(crop)
+                signal = get_futures_signal(crop, 0.0)
                 # Merge into existing cache so we don't overwrite alert data
                 existing = load_cache(crop, max_age_seconds=86400) or {}
-                existing["ncdex_signal"] = futures.get("signal", "")
+                existing["ncdex_signal"] = signal
                 existing["ncdex_price"] = futures.get("futures_price", 0)
                 existing["ncdex_fetched_at"] = datetime.now().isoformat()
                 save_cache(crop, existing)
-                log.info("[Scheduler] NCDEX futures for %s: %s", crop, futures.get("signal", ""))
+                log.info("[Scheduler] NCDEX futures for %s: %s", crop, signal)
             except Exception as e:
                 log.warning("[Scheduler] NCDEX fetch failed for %s: %s", crop, e)
     except Exception as e:
@@ -73,11 +74,11 @@ def _run_pipeline_for_crop(crop: str) -> Optional[dict]:
         original_district = cfg.TARGET_DISTRICT
 
         # Temporarily override config for this crop
-        cfg.TARGET_COMMODITY = crop
-        cfg.TARGET_DISTRICT = _DISTRICT
+        cfg.TARGET_COMMODITY = crop # type: ignore
+        cfg.TARGET_DISTRICT = _DISTRICT # type: ignore
 
         from run_pipeline import run
-        alert = run(use_live=True)
+        alert = run()
 
         cfg.TARGET_COMMODITY = original_crop
         cfg.TARGET_DISTRICT = original_district

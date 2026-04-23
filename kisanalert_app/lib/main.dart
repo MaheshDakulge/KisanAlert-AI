@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'state/app_state.dart';
 import 'data/app_data.dart';
@@ -11,9 +14,27 @@ import 'screens/weather_screen.dart';
 import 'screens/profile_screen.dart';
 import 'modals/modals.dart';
 
-void main() {
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Initialize Firebase if needed for background handling
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print("Handling a background message: ${message.messageId}");
+}
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // ⭐ Google Firebase initialization
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  } catch (_) {
+    // Firebase not configured yet — app still runs without FCM
+  }
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  // Hide the status bar (time, battery, etc.) for a cleaner demo experience
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.bottom]);
   runApp(const KisanAlertApp());
 }
 
@@ -30,8 +51,39 @@ class _KisanAlertAppState extends State<KisanAlertApp> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [SystemUiOverlay.bottom]);
     _appState.addListener(() => setState(() {}));
     _appState.startAutoRefresh();
+    _setupFCMListener();
+  }
+
+  /// ⭐ FCM DATA_REFRESH — backend broadcasts this after every 5 PM pipeline run.
+  /// Flutter silently calls fetchData() so all screens update automatically.
+  void _setupFCMListener() async {
+    try {
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+      // Request notification permissions (required for Android 13+ and iOS)
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      await messaging.subscribeToTopic('market_alerts');
+      // Foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if (message.data['type'] == 'DATA_REFRESH') {
+          _appState.fetchData();
+        }
+      });
+      // Notification tap when app is in background
+      FirebaseMessaging.onMessageOpenedApp.listen((_) {
+        _appState.fetchData();
+      });
+    } catch (_) {
+      // Firebase not set up — falls back to hourly timer in startAutoRefresh()
+    }
   }
 
   @override

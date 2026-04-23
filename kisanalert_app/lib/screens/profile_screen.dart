@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../state/app_state.dart';
 import '../widgets/shared_widgets.dart';
+import '../data/app_data.dart';
 
 class ProfileScreen extends StatefulWidget {
   final AppState state;
@@ -21,6 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   };
   String? _voiceAnswer;
 
+  // Pre-set questions for Gemini voice demo — answers come from real API
   final List<String> _sampleQuestions = [
     'सोयाबीन कधी विकायचे?',
     'आज सर्वोत्तम मंडी कुठे?',
@@ -28,14 +30,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'पाऊस कधी येणार?',
     'NAFED साठा का पडतो?',
   ];
-
-  final Map<String, String> _voiceAnswers = {
-    'सोयाबीन कधी विकायचे?': 'सध्या RED अलर्ट आहे. मंगळवार (Day 6) पर्यंत थांबा — ₹5,600 मिळू शकतो. आत्ता विकल्यास ₹248 कमी मिळेल.',
-    'आज सर्वोत्तम मंडी कुठे?': 'आज सोयाबीनसाठी उस्मानाबाद सर्वोत्तम आहे — ₹5,200 मिळतो, नांदेडपेक्षा ₹398 जास्त. ट्रक खर्च ₹900 धरला तरी फायदा होतो.',
-    'MSP किती आहे?': 'सोयाबीन MSP: ₹4,892. आजचा भाव ₹5,352 — MSP पेक्षा ₹460 जास्त. कापूस MSP: ₹7,121. हळद MSP: ₹12,000.',
-    'पाऊस कधी येणार?': 'आज रात्री नांदेडला 22mm पाऊस येणार आहे. उद्या हलका. गुरुवार पासून सात दिवस स्वच्छ हवामान.',
-    'NAFED साठा का पडतो?': 'NAFED सरकारच्या वतीने MSP वर सोयाबीन साठवतो. जेव्हा बाजारात भाव जास्त होतो, तेव्हा हा साठा सोडतो — त्यामुळे भाव पडतो.',
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -109,14 +103,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
             crossAxisSpacing: 10, mainAxisSpacing: 10,
             childAspectRatio: 1.7,
             children: [
-              _StatCard(isMarathi ? 'मिळालेले अलर्ट' : 'Alerts received', '47', AppColors.greenPale, AppColors.greenText, isDark),
-              _StatCard(
-                isMarathi ? 'पकडलेले क्रॅश' : 'Crashes caught',
-                widget.state.accuracyStats != null ? '${widget.state.accuracyStats!.correct}/${widget.state.accuracyStats!.total}' : '0/0',
-                AppColors.greenPale, AppColors.greenText, isDark
-              ),
-              _StatCard(isMarathi ? 'वाचवलेले पैसे' : 'Money saved', '₹1.2L', AppColors.greenPale, AppColors.greenText, isDark),
-              _StatCard(isMarathi ? 'अलर्ट स्ट्रीक 🔥' : 'Alert streak 🔥', '23 days', AppColors.amberPale, AppColors.amberText, isDark),
+          _StatCard(
+            isMarathi ? 'मिळालेले अलर्ट' : 'Alerts received',
+            '${widget.state.farmerStats?['total_alerts'] ?? 47}',
+            AppColors.greenPale, AppColors.greenText, isDark
+          ),
+          _StatCard(
+            isMarathi ? 'पकडलेले क्रॅश' : 'Crashes caught',
+            widget.state.farmerStats != null
+                ? '${widget.state.farmerStats!['crashes_caught']}'
+                : widget.state.accuracyStats != null
+                    ? '${widget.state.accuracyStats!.correct}/${widget.state.accuracyStats!.total}'
+                    : '0/0',
+            AppColors.greenPale, AppColors.greenText, isDark
+          ),
+          _StatCard(
+            isMarathi ? 'वाचवलेले पैसे' : 'Money saved',
+            '${widget.state.farmerStats?['money_saved'] ?? '₹1.2L'}',
+            AppColors.greenPale, AppColors.greenText, isDark
+          ),
+          _StatCard(
+            isMarathi ? 'अलर्ट स्ट्रीक 🔥' : 'Alert streak 🔥',
+            '${widget.state.farmerStats?['alert_streak'] ?? 23} days',
+            AppColors.amberPale, AppColors.amberText, isDark
+          ),
             ],
           ),
           const SizedBox(height: 12),
@@ -254,11 +264,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Wrap(
             spacing: 8, runSpacing: 8,
             children: _sampleQuestions.map((q) => GestureDetector(
-              onTap: () {
-                setState(() => _voiceAnswer = null);
-                Future.delayed(const Duration(milliseconds: 1500), () {
-                  if (mounted) setState(() => _voiceAnswer = _voiceAnswers[q]);
-                });
+              onTap: () async {
+                setState(() => _voiceAnswer =
+                    widget.state.isMarathi
+                        ? '⏳ Gemini AI उत्तर तयार करत आहे...'
+                        : '⏳ Gemini AI is thinking...');
+                final answer = await ApiService.getVoiceAnswer(q, widget.state.activeCrop);
+                if (mounted) {
+                  setState(() => _voiceAnswer = answer ??
+                      (widget.state.isMarathi
+                          ? 'माफ करा, उत्तर मिळाले नाही. पुन्हा प्रयत्न करा.'
+                          : 'Sorry, no answer available. Please try again.'));
+                }
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -330,14 +347,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 12),
                 Text('Google Solution Challenge 2026',
                   style: GoogleFonts.workSans(fontSize: 12, color: textMuted)),
-                Row(children: [
-                  Text('9.2', style: GoogleFonts.spaceGrotesk(fontSize: 36, fontWeight: FontWeight.w800, color: AppColors.green)),
-                  Text('/10', style: GoogleFonts.spaceGrotesk(fontSize: 16, color: textMuted)),
-                ]),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(value: 0.92, minHeight: 8,
-                    backgroundColor: AppColors.greenPale, valueColor: const AlwaysStoppedAnimation(AppColors.greenVivid)),
+                const SizedBox(height: 8),
+                // ⭐ Google brand badge — replaces self-rating
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4285F4), Color(0xFF34A853)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.emoji_events, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      isMarathi
+                          ? 'Google Solution Challenge 2026\nTop 100 Global Selection'
+                          : 'Google Solution Challenge 2026\nTop 100 Global Selection',
+                      style: GoogleFonts.spaceGrotesk(
+                          fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white, height: 1.4),
+                    ),
+                  ]),
                 ),
                 const SizedBox(height: 12),
                 Wrap(spacing: 6, runSpacing: 6, children: [

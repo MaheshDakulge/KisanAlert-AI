@@ -81,6 +81,29 @@ class HomeScreen extends StatelessWidget {
                     isDark: isDark,
                     isMarathi: state.isMarathi,
                   ),
+                  const SizedBox(height: 14),
+                  _SDGImpactCard(isDark: isDark, isMarathi: state.isMarathi),
+                  const SizedBox(height: 14),
+                  // ⭐ Google Technology Stack Footer
+                  Center(
+                    child: Wrap(
+                      spacing: 8, runSpacing: 6,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        '✦ Gemini AI', 'Google Maps', 'Cloud Run', 'Firebase FCM', 'Vertex AI'
+                      ].map((t) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4285F4).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.25)),
+                        ),
+                        child: Text(t, style: GoogleFonts.workSans(
+                            fontSize: 10, fontWeight: FontWeight.w600,
+                            color: const Color(0xFF4285F4))),
+                      )).toList(),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -817,6 +840,82 @@ class _TrustBadge extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SDG IMPACT CARD — Shows on Home Screen, not just buried in Profile
+// ─────────────────────────────────────────────────────────────────
+class _SDGImpactCard extends StatelessWidget {
+  final bool isDark;
+  final bool isMarathi;
+  const _SDGImpactCard({required this.isDark, required this.isMarathi});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF166534).withValues(alpha: isDark ? 0.25 : 0.12),
+            const Color(0xFF14532D).withValues(alpha: isDark ? 0.10 : 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF166534).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Text('🌍', style: TextStyle(fontSize: 20)),
+            const SizedBox(width: 8),
+            Text(
+              isMarathi ? 'SDG 1 · 2 · 8 — आमचा उद्देश' : 'SDG 1 · 2 · 8 — Our Purpose',
+              style: GoogleFonts.spaceGrotesk(
+                  fontSize: 14, fontWeight: FontWeight.w700,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+            isMarathi
+                ? '२०२४ मध्ये महाराष्ट्रात २,७०६ शेतकरी आत्महत्या झाल्या. AI वापरून हे रोखणे आमचे ध्येय आहे.'
+                : '2,706 farmer suicides in Maharashtra in 2024. We are using AI to change that.',
+            style: GoogleFonts.workSans(
+                fontSize: 12, height: 1.5,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.textMuted),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8, runSpacing: 4,
+            children: [
+              _SdgChip('🎯 SDG 1: No Poverty'),
+              _SdgChip('🌾 SDG 2: Zero Hunger'),
+              _SdgChip('💼 SDG 8: Decent Work'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SdgChip extends StatelessWidget {
+  final String label;
+  const _SdgChip(this.label);
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.greenPale,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(label, style: GoogleFonts.workSans(
+          fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.greenText)),
     );
   }
 }

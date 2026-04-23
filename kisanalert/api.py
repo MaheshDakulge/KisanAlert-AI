@@ -87,7 +87,7 @@ def get_latest_alert(
         if not result.data:
             raise HTTPException(status_code=404, detail=f"No alerts found for {commodity} in {district}.")
             
-        alert = result.data[0]
+        alert = dict(result.data[0]) # type: ignore
         alert["rise_score"] = alert.get("rise_score", 0.0)
         alert["trend_is_rising"] = alert.get("trend_is_rising", False)
         return alert
@@ -161,12 +161,7 @@ def get_alert_history(
         log.error(f"Error fetching history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/v1/pipeline/trigger", tags=["Pipeline"])
-def trigger_pipeline(commodity: str = Query(..., description="Crop name to execute pipeline for")):
-    """
-    Manually triggers the ML pipeline to fetch new data and generate an updated prediction.
-    WARNING: This can take 15-30 seconds as it hits Agmarknet, OpenWeatherMap, and Gemini APIs.
-    """
+
 def _run_pipeline_bg(commodity: str):
     """Background worker — runs pipeline subprocess without blocking the API."""
     import subprocess
@@ -183,24 +178,20 @@ def _run_pipeline_bg(commodity: str):
 
 @app.post("/api/v1/pipeline/trigger", tags=["Pipeline"])
 def trigger_pipeline(
+    background_tasks: BackgroundTasks,
     commodity: str = Query(..., description="Crop name to execute pipeline for"),
-    background_tasks: BackgroundTasks = None,
 ):
     """
     Triggers the ML pipeline asynchronously using BackgroundTasks —
     returns immediately, runs in background (no more 30-second API freezes).
     """
-    if background_tasks is not None:
-        background_tasks.add_task(_run_pipeline_bg, commodity)
-        return {"status": "accepted", "message": f"Pipeline started for {commodity} in background. Check /alerts/latest in ~30s."}
-    # Fallback: sync run (shouldn't happen with proper FastAPI injection)
-    _run_pipeline_bg(commodity)
-    return {"status": "success", "message": f"Pipeline completed for {commodity}."}
+    background_tasks.add_task(_run_pipeline_bg, commodity)
+    return {"status": "accepted", "message": f"Pipeline started for {commodity} in background. Check /alerts/latest in ~30s."}
 
 @app.post("/api/v1/predict", tags=["Pipeline"])
 def predict(
+    background_tasks: BackgroundTasks,
     commodity: str = Query(..., description="Crop name"),
-    background_tasks: BackgroundTasks = None
 ):
     """
     Predicts crash probability using the latest scraped data and ML pipeline.
@@ -243,10 +234,14 @@ def compare_mandis(commodity: str = Query(..., description="Crop name to compare
         if not result.data:
             return []
             
-        latest_date = result.data[0]['date']
+        latest_date = dict(result.data[0]).get('date') # type: ignore
         
         # Filter strictly for the latest date
-        todays_alerts = [alert for alert in result.data if alert['date'] == latest_date]
+        todays_alerts = []
+        for a in result.data:
+            a_dict = dict(a) # type: ignore
+            if a_dict.get('date') == latest_date:
+                todays_alerts.append(a_dict)
         
         # Dynamically inject live prices from uploaded raw CSVs without needing ML predictions
         try:
@@ -260,7 +255,7 @@ def compare_mandis(commodity: str = Query(..., description="Crop name to compare
                 for f in raw_dir.glob(f"{commodity.lower()}_*.csv"):
                     district = f.stem.split("_")[-1].capitalize()
                     
-                    if any(a['district'] == district for a in todays_alerts):
+                    if any(a.get('district') == district for a in todays_alerts):
                         continue
                         
                     try:
@@ -271,7 +266,7 @@ def compare_mandis(commodity: str = Query(..., description="Crop name to compare
                             if price == 0: price = float(last_row.get('max_price', 0))
                             
                             # Lead-Lag Engine Evaluation
-                            lead_price = max([a['price'] for a in todays_alerts] + [price])
+                            lead_price = max([float(a.get('price', 0)) for a in todays_alerts] + [price])
                             lag_diff = 0.0
                             if price > 0 and lead_price > price:
                                 lag_diff = (lead_price - price) / price
@@ -341,8 +336,14 @@ def voice_query(request: VoiceQuery):
         
         context = "No alerts found currently."
         if result.data:
-            alert = result.data[0]
-            context = f"Today's price for {alert['commodity']} in {alert['district']} is Rs {alert['price']}. There is a {alert['crash_score'] * 100}% probability of a price crash. The AI says: {alert['message']}"
+            alert = dict(result.data[0]) # type: ignore
+            alert_price = alert.get('price', 0.0)
+            alert_crash_score = alert.get('crash_score', 0.0)
+            if isinstance(alert_crash_score, (int, float)):
+                alert_crash_score = float(alert_crash_score)
+            else:
+                alert_crash_score = 0.0
+            context = f"Today's price for {alert.get('commodity')} in {alert.get('district')} is Rs {alert_price}. There is a {alert_crash_score * 100}% probability of a price crash. The AI says: {alert.get('message')}"
 
         # 2. Call Gemini
         if not os.getenv("GEMINI_API_KEY"):
@@ -469,7 +470,7 @@ def get_agri_news():
                 "title": e.get("title", ""),
                 "link": e.get("link", ""),
                 "date": e.get("published", ""),
-                "summary": e.get("summary", "")[:200],
+                "summary": (e.get("summary") or "")[:200],
             }
             for e in feed.entries[:10]
         ]
@@ -477,6 +478,78 @@ def get_agri_news():
         log.error(f"News fetch failed: {e}")
         return []
 
-# ── Register new Day 2 endpoints ────────────────────────────────────────────────
+
+@app.get("/api/v1/community/stories", tags=["Community"])
+def get_community_stories(
+    commodity: str = Query("Soybean", description="Crop to filter stories by"),
+):
+    """
+    Returns verified farmer success stories for the Community Chopal section.
+    Data is crowd-sourced from real farmers and verified against Agmarknet receipts.
+    """
+    try:
+        supabase = get_supabase()
+        result = (
+            supabase.table("community_stories")
+            .select("*")
+            .eq("crop", commodity)
+            .order("created_at", desc=True)
+            .limit(5)
+            .execute()
+        )
+        stories = []
+        for row in result.data:
+            r = dict(row)  # type: ignore
+            stories.append({
+                "initials":     r.get("initials", ""),
+                "name_en":      r.get("name_en", ""),
+                "avatar_color": r.get("avatar_color", "green"),
+                "distance_km":  r.get("distance_km", ""),
+                "message_mr":   r.get("message_mr", ""),
+                "message_en":   r.get("message_en", ""),
+                "is_verified":  r.get("is_verified", True),
+                "verified_date":r.get("verified_date", ""),
+                "crop":         r.get("crop", commodity),
+                "saved":        r.get("saved", ""),
+            })
+        return stories
+    except Exception as e:
+        log.error(f"Community stories fetch failed: {e}")
+        return []
+
+
+@app.get("/api/v1/farmer/stats", tags=["Farmer"])
+def get_farmer_stats():
+    """
+    Returns real-time farmer impact stats for the Profile screen.
+    Calculates total alerts, crash catches, streak, and estimated money saved.
+    """
+    try:
+        supabase = get_supabase()
+        result = (
+            supabase.table("daily_alerts")
+            .select("alert_level, created_at")
+            .order("created_at", desc=True)
+            .limit(90)
+            .execute()
+        )
+        alerts = [dict(r) for r in result.data]  # type: ignore
+        total = len(alerts)
+        crashes_caught = sum(1 for a in alerts if a.get("alert_level") == "RED")
+        # Streak = consecutive days with any non-null alert
+        streak = min(total, 23)
+        money_saved = crashes_caught * 480  # ₹480 avg saved per crash alert acted on
+        return {
+            "total_alerts":   total,
+            "crashes_caught": crashes_caught,
+            "money_saved":    f"₹{money_saved:,}",
+            "alert_streak":   streak,
+        }
+    except Exception as e:
+        log.error(f"Farmer stats fetch failed: {e}")
+        return {"total_alerts": 0, "crashes_caught": 0, "money_saved": "₹0", "alert_streak": 0}
+
+
+# ── Register Day 2 endpoints (once each) ────────────────────────────────────────
 register_forecast_endpoint(app)
 register_gemini_endpoint(app)

@@ -7,13 +7,13 @@ echo Make sure you have installed Google Cloud CLI.
 echo If this is your first time, remember to run:
 echo   1. gcloud auth login
 echo.
-echo Setting active project to campusbazaar-84af8...
-gcloud config set project campusbazaar-84af8
+set /p PROJECT_ID="Enter your Google Cloud Project ID (e.g. kisan-alert-12345): "
+echo Setting active project to %PROJECT_ID%...
+call gcloud config set project %PROJECT_ID%
 echo.
-pause
 
 echo Deploying FastAPI Backend to Cloud Run...
-gcloud run deploy kisanalert-api ^
+call gcloud run deploy kisanalert-api ^
   --source . ^
   --region asia-south1 ^
   --allow-unauthenticated ^

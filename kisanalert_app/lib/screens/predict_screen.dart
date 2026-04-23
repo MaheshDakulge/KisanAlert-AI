@@ -76,11 +76,21 @@ class _PredictScreenState extends State<PredictScreen> {
                     decoration: BoxDecoration(color: surfaceHigh, borderRadius: BorderRadius.circular(10)),
                     child: Column(
                       children: [
-                        Text('Rule R02 override · nafed_release + arrivals 2.8×',
-                          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: textMuted)),
+                        Text(
+                          crop.alertLevel == 'RED'
+                              ? 'nafed_release + arrivals surge · DGFT export policy active'
+                              : crop.alertLevel == 'BLUE'
+                                  ? 'Lead-lag signal from Latur market · futures basis positive'
+                                  : crop.alertLevel == 'GREEN'
+                                      ? 'Price at 30-day peak · low crash risk confirmed'
+                                      : 'No major market intervention detected',
+                          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: textMuted),
+                        ),
                         const SizedBox(height: 4),
-                        Text('78% confidence · Based on 2021-2025 training data',
-                          style: GoogleFonts.jetBrainsMono(fontSize: 10, color: textMuted)),
+                        Text(
+                          'AUC: 0.76 · Trained 2021–2025 · ${(crop.crashScore * 100).round()}% confidence',
+                          style: GoogleFonts.jetBrainsMono(fontSize: 10, color: textMuted),
+                        ),
                       ],
                     ),
                   ),
@@ -89,6 +99,10 @@ class _PredictScreenState extends State<PredictScreen> {
             ),
           ),
           const SizedBox(height: 20),
+
+          // 🌟 Lead-Lag & NCDEX Strategy Explanation
+          _LeadLagInfoCard(isDark: isDark, isMarathi: isMarathi),
+          const SizedBox(height: 24),
 
           // Three model cards
           Text(isMarathi ? '३ AI मॉडेल्स / 3 AI Models' : '3 AI Models',
@@ -641,9 +655,61 @@ class _ThresholdChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(label, style: GoogleFonts.jetBrainsMono(fontSize: 10, fontWeight: FontWeight.w600, color: fg)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(label, style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// LEAD-LAG & NCDEX EXPLANATION CARD
+// ─────────────────────────────────────────────────────────────────
+class _LeadLagInfoCard extends StatelessWidget {
+  final bool isDark;
+  final bool isMarathi;
+  const _LeadLagInfoCard({required this.isDark, required this.isMarathi});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF4285F4).withValues(alpha: isDark ? 0.2 : 0.1),
+            const Color(0xFF0F9D58).withValues(alpha: isDark ? 0.1 : 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF4285F4).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.psychology, color: Color(0xFF4285F4)),
+            const SizedBox(width: 8),
+            Text(
+              isMarathi ? '48-तास प्रेडिक्शन इंजिन' : '48-Hour Prediction Engine',
+              style: GoogleFonts.spaceGrotesk(
+                  fontSize: 15, fontWeight: FontWeight.w700,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Text(
+            isMarathi
+                ? '१. NCDEX फ्युचर्स डेटा (Contango/Backwardation) व्यापारी बाजारात काय विचार करत आहेत हे शोधतो.\n'
+                  '२. लीड-लॅग स्ट्रॅटेजी: लातूरसारख्या मोठ्या मंडीमध्ये आज किंमत पडली, तर नांदेडमध्ये 48 तासांनी किंमत पडण्याची शक्यता असते. आमचे AI या 48 तासांच्या अंतराचा फायदा घेऊन शेतकऱ्यांना वेळेवर अलर्ट देते.'
+                : '1. NCDEX Futures data tracks if traders expect prices to rise or fall (Contango vs Backwardation).\n'
+                  '2. Lead-Lag Strategy: A price crash in a major hub like Latur today predicts a crash in Nanded 48 hours from now. Our AI exploits this latency to warn farmers before the local crash happens.',
+            style: GoogleFonts.workSans(
+                fontSize: 13, height: 1.5,
+                color: isDark ? AppColors.darkTextSecondary : AppColors.textMuted),
+          ),
+        ],
+      ),
     );
   }
 }

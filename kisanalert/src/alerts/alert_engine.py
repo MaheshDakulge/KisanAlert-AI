@@ -172,10 +172,10 @@ def generate_alert(
 
     # 1. Crash model prediction (filter features)
     crash_feats = crash_model.get_booster().feature_names
-    X_crash = features_row[crash_feats] if all(c in features_row.columns for c in crash_feats) else features_row
-    # If there's still a mismatch, we attempt to reindex to match model expectations
-    if hasattr(crash_model.get_booster(), 'feature_names'):
-        X_crash = features_row.reindex(columns=crash_model.get_booster().feature_names, fill_value=0.0)
+    if crash_feats is not None:
+        X_crash = features_row.reindex(columns=list(crash_feats), fill_value=0.0)
+    else:
+        X_crash = features_row
     
     crash_score = float(crash_model.predict_proba(X_crash)[0, 1])
 
@@ -184,7 +184,10 @@ def generate_alert(
     if rise_model is not None:
         try:
             rise_feats = rise_model.get_booster().feature_names
-            X_rise = features_row.reindex(columns=rise_feats, fill_value=0.0)
+            if rise_feats is not None:
+                X_rise = features_row.reindex(columns=list(rise_feats), fill_value=0.0)
+            else:
+                X_rise = features_row
             rise_score = float(rise_model.predict_proba(X_rise)[0, 1])
         except Exception as e:
             log.warning("Rise model prediction failed: %s", e)

@@ -317,4 +317,15 @@ class ApiService {
     } catch (_) {}
     return null;
   }
+
+  /// Returns real-time farmer impact stats for the Profile screen.
+  static Future<Map<String, dynamic>?> getFarmerStats() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_baseUrl/farmer/stats'),
+      ).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) return json.decode(res.body);
+    } catch (_) {}
+    return null;
+  }
 }

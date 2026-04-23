@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../data/app_data.dart';
+import '../db_helper.dart';
 import 'dart:async';
 class AppState extends ChangeNotifier {
   // Language
@@ -49,6 +50,9 @@ class AppState extends ChangeNotifier {
   AccuracyStats? _accuracyStats;
   AccuracyStats? get accuracyStats => _accuracyStats;
 
+  Map<String, dynamic>? _farmerStats;
+  Map<String, dynamic>? get farmerStats => _farmerStats;
+
   Timer? _weatherTimer;
 
   AppState() {
@@ -67,7 +71,26 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final alertData = await ApiService.getLatestAlert(_activeCrop, 'Nanded');
+      var alertData = await ApiService.getLatestAlert(_activeCrop, 'Nanded');
+      
+      // Offline caching logic
+      if (alertData != null) {
+        // Cache the successful fetch
+        alertData['created_at'] = DateTime.now().toIso8601String();
+        await DatabaseHelper().cacheAlerts([alertData]);
+      } else {
+        // Fetch from cache if API failed
+        final cached = await DatabaseHelper().getCachedAlerts();
+        if (cached.isNotEmpty) {
+          final matched = cached.where((a) => a['commodity'] == _activeCrop).toList();
+          if (matched.isNotEmpty) {
+            alertData = matched.first;
+            // Append offline notice to message
+            alertData['message'] = "[OFFLINE CACHE] " + (alertData['message'] ?? "");
+          }
+        }
+      }
+
       if (alertData != null) {
         _currentCrop = CropData(
           name: _activeCrop,
@@ -78,7 +101,7 @@ class AppState extends ChangeNotifier {
           msp: _activeCrop == 'Soybean' ? 4892 : (_activeCrop == 'Cotton' ? 7121 : 12000),
         );
       } else {
-        _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'No live alert data.', msp: 0);
+        _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'No live or cached data.', msp: 0);
       }
 
       final mandisData = await ApiService.getMandisCompare(_activeCrop);
@@ -114,14 +137,13 @@ class AppState extends ChangeNotifier {
       }
 
       // ── Signals (derived from latest alert fields) ──────────────────────
-      final alertForSignals = await ApiService.getLatestAlert(_activeCrop, 'Nanded');
-      if (alertForSignals != null) {
+      if (alertData != null) {
         _currentSignals = [
           Signal(
-            label: 'Crash Score ${((alertForSignals['crash_score'] as num).toDouble() * 100).toStringAsFixed(0)}%',
-            level: alertForSignals['alert_level'] ?? 'AMBER',
-            explanation: alertForSignals['message'] ?? '',
-            marathi: alertForSignals['message'] ?? '',
+            label: 'Crash Score ${((alertData['crash_score'] as num).toDouble() * 100).toStringAsFixed(0)}%',
+            level: alertData['alert_level'] ?? 'AMBER',
+            explanation: alertData['message'] ?? '',
+            marathi: alertData['message'] ?? '',
           ),
         ];
       } else {
@@ -177,8 +199,52 @@ class AppState extends ChangeNotifier {
         _currentStories = [];
       }
       _forecast = await ApiService.getMultiDayForecast(_activeCrop);
-      _accuracyStats = await ApiService.getAccuracyStats(days: 30);
+      
+      // ALIGN FORECAST WITH LIVE PRICE
+      // The forecast uses the last known DB price, but the live price might differ slightly.
+      // We align the forecast base to the live price so the UI percentage and chart trend perfectly match!
+      if (_forecast != null && _currentCrop != null && _currentCrop!.price > 0) {
+        final double diff = _currentCrop!.price - _forecast!.currentPrice;
+        
+        final alignedFutureDays = _forecast!.next10Days.map((f) => ForecastPredicted(
+          date: f.date,
+          predictedPrice: f.predictedPrice + diff,
+          confidence: f.confidence,
+        )).toList();
 
+        final alignedPastDays = _forecast!.past7Days.map((p) => ForecastPoint(
+          date: p.date,
+          price: p.price,
+          isActual: p.isActual,
+        )).toList();
+        
+        // Ensure the last past point perfectly matches the live price
+        if (alignedPastDays.isNotEmpty) {
+          alignedPastDays.last = ForecastPoint(
+            date: alignedPastDays.last.date,
+            price: _currentCrop!.price,
+            isActual: true,
+          );
+        }
+
+        final newDay10Price = _forecast!.day10Predicted + diff;
+        final newDay3Price = _forecast!.day3Predicted + diff;
+        
+        _forecast = ForecastData(
+          currentPrice: _currentCrop!.price,
+          currentDate: _forecast!.currentDate,
+          past7Days: alignedPastDays,
+          next10Days: alignedFutureDays,
+          day3Predicted: newDay3Price,
+          day3ChangePct: ((newDay3Price - _currentCrop!.price) / _currentCrop!.price) * 100,
+          day10Predicted: newDay10Price,
+          day10ChangePct: ((newDay10Price - _currentCrop!.price) / _currentCrop!.price) * 100,
+          trend: _forecast!.trend,
+        );
+      }
+
+      _accuracyStats = await ApiService.getAccuracyStats(days: 30);
+      _farmerStats   = await ApiService.getFarmerStats();
 
     } catch (e) {
       _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'Network error — check backend.', msp: 0);
