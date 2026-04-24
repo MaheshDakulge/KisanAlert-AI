@@ -2,6 +2,8 @@
 // ⭐ MANDI MAP — Real Google Maps SDK integration for Marathwada APMC mandis
 // Shows live price markers, tappable pins, and signal colour coding on satellite map.
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -380,6 +382,9 @@ class _GoogleMandiMap extends StatelessWidget {
                 zoomControlsEnabled: false,
                 compassEnabled: true,
                 mapToolbarEnabled: false,
+                gestureRecognizers: {
+                  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                },
               )
             else
               _MapErrorFallback(isDark: isDark),
