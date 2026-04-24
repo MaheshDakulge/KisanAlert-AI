@@ -35,7 +35,8 @@ SUPPORTED_CROPS = ["Soybean", "Cotton", "Turmeric"]
 TARGET_COMMODITY = "Soybean"  # Default fallback if no flag
 TARGET_DISTRICT  = "Nanded"
 DATE_START       = "2021-01-01"   # extended: yearly CSVs cover 2021-2026
-DATE_END         = "2026-04-30"
+from datetime import datetime
+DATE_END         = datetime.today().strftime('%Y-%m-%d')
 
 # ── MSP (Minimum Support Price) ────────────────────────────────────────────────
 MSP_2024 = {

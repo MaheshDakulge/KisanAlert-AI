@@ -162,11 +162,16 @@ def get_alert_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _run_pipeline_bg(commodity: str):
+def _run_pipeline_bg(commodity: str, live_price: float = None, live_arrivals: float = None):
     """Background worker — runs pipeline subprocess without blocking the API."""
     import subprocess
     try:
         cmd = ["python", "run_pipeline.py", "--crop", commodity]
+        if live_price is not None:
+            cmd.extend(["--price", str(live_price)])
+        if live_arrivals is not None:
+            cmd.extend(["--arrivals", str(live_arrivals)])
+            
         process = subprocess.run(cmd, capture_output=True, text=True, cwd=str(Path(__file__).parent))
         if process.returncode != 0:
             log.error(f"Background pipeline failed for {commodity}: {process.stderr}")
@@ -180,12 +185,14 @@ def _run_pipeline_bg(commodity: str):
 def trigger_pipeline(
     background_tasks: BackgroundTasks,
     commodity: str = Query(..., description="Crop name to execute pipeline for"),
+    live_price: float = Query(None, description="Inject live scraped price"),
+    live_arrivals: float = Query(None, description="Inject live scraped arrivals")
 ):
     """
     Triggers the ML pipeline asynchronously using BackgroundTasks —
     returns immediately, runs in background (no more 30-second API freezes).
     """
-    background_tasks.add_task(_run_pipeline_bg, commodity)
+    background_tasks.add_task(_run_pipeline_bg, commodity, live_price, live_arrivals)
     return {"status": "accepted", "message": f"Pipeline started for {commodity} in background. Check /alerts/latest in ~30s."}
 
 @app.post("/api/v1/predict", tags=["Pipeline"])
@@ -209,7 +216,12 @@ def predict(
     dgft_status = DgftScraper().check_policy_changes(commodity=commodity)
     
     # 3. Trigger baseline prediction pipeline
-    pipeline_status = trigger_pipeline(commodity=commodity, background_tasks=background_tasks)
+    pipeline_status = trigger_pipeline(
+        commodity=commodity, 
+        background_tasks=background_tasks,
+        live_price=latest_data.get("modal_price"),
+        live_arrivals=latest_data.get("arrival_qty")
+    )
     
     return {
         "pipeline_status": pipeline_status,

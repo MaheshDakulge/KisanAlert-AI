@@ -33,7 +33,7 @@ logging.basicConfig(
 log = logging.getLogger("kisanalert.pipeline")
 
 
-def run() -> dict:
+def run(live_price: float = None, live_arrivals: float = None) -> dict:
     """
     Full inference pipeline (no training).
     Uses the most recent row of the cleaned DataFrame as today's data.
@@ -48,6 +48,15 @@ def run() -> dict:
     try:
         from src.data.loader import load_clean_data
         df_clean = load_clean_data()
+        
+        # INJECT LIVE SCRAPED DATA if provided
+        if live_price is not None:
+            df_clean.loc[df_clean.index[-1], "modal_price"] = live_price
+            log.info("💉 Injected LIVE modal_price = %.2f into today's row", live_price)
+        if live_arrivals is not None:
+            df_clean.loc[df_clean.index[-1], "arrival_qty"] = live_arrivals
+            log.info("💉 Injected LIVE arrival_qty = %.2f into today's row", live_arrivals)
+            
     except FileNotFoundError as e:
         log.error("❌ Data file missing: %s", e)
         log.error("Download soybean Nanded CSV from https://agmarknet.gov.in and place at:")
@@ -315,9 +324,27 @@ if __name__ == "__main__":
         action="store_true",
         help="Run full training pipeline (Phases 1–4 + evaluation) before inference."
     )
+    parser.add_argument(
+        "--crop",
+        type=str,
+        help="Override the TARGET_COMMODITY config."
+    )
+    parser.add_argument(
+        "--price",
+        type=float,
+        help="Inject live scraped modal price for today."
+    )
+    parser.add_argument(
+        "--arrivals",
+        type=float,
+        help="Inject live scraped arrival quantity for today."
+    )
     args = parser.parse_args()
+
+    if args.crop:
+        config.TARGET_COMMODITY = args.crop
 
     if args.train:
         run_full_training()
 
-    run()
+    run(live_price=args.price, live_arrivals=args.arrivals)
