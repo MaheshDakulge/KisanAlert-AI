@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _villageCtrl = TextEditingController();
   final _acresCtrl   = TextEditingController();
   String _district   = 'Nanded';
-  String _primaryCrop = 'Soybean';
+  List<String> _selectedCrops = ['Soybean'];
   bool _isLoading = false;
   bool _isGoogleLoading = false;
 
@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen>
       village: _villageCtrl.text.trim(),
       district: _district,
       acres: _acresCtrl.text.trim(),
-      primaryCrop: _primaryCrop,
+      primaryCrop: _selectedCrops.join(', '),
     );
     if (mounted) setState(() => _isLoading = false);
   }
@@ -80,13 +80,13 @@ class _LoginScreenState extends State<LoginScreen>
         village: _villageCtrl.text.trim(),
         district: _district,
         acres: _acresCtrl.text.trim(),
-        primaryCrop: _primaryCrop,
+        primaryCrop: _selectedCrops.join(', '),
       );
     } catch (_) {
       _showSnack('Google Sign-In unavailable — using demo mode');
       await widget.state.login(
         'demo_google_user', 'Demo Farmer', '',
-        district: _district, primaryCrop: _primaryCrop,
+        district: _district, primaryCrop: _selectedCrops.join(', '),
       );
     }
     if (mounted) setState(() => _isGoogleLoading = false);
@@ -236,10 +236,16 @@ class _LoginScreenState extends State<LoginScreen>
                         ('Cotton',  '🌿', 'कापूस'),
                         ('Turmeric','🌾', 'हळद'),
                       ].map((c) {
-                        final isActive = _primaryCrop == c.$1;
+                        final isActive = _selectedCrops.contains(c.$1);
                         return Expanded(
                           child: GestureDetector(
-                            onTap: () => setState(() => _primaryCrop = c.$1),
+                            onTap: () => setState(() {
+                              if (_selectedCrops.contains(c.$1)) {
+                                if (_selectedCrops.length > 1) _selectedCrops.remove(c.$1);
+                              } else {
+                                _selectedCrops.add(c.$1);
+                              }
+                            }),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 180),
                               margin: const EdgeInsets.symmetric(horizontal: 3),

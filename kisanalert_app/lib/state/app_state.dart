@@ -377,8 +377,8 @@ class AppState extends ChangeNotifier {
     farmerDistrict   = district;
     farmerAcres      = acres.isNotEmpty ? acres : null;
     farmerPrimaryCrop = primaryCrop;
-    // Switch active crop to the farmer's primary crop
-    _activeCrop = primaryCrop;
+    // Switch active crop to the farmer's first selected crop
+    _activeCrop = primaryCrop.split(',').first.trim();
     notifyListeners();
     await fetchData();
   }
