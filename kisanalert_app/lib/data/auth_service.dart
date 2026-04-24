@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 class AuthService {
-  static const String _baseUrl = 'http://127.0.0.1:8000/api/v1/auth';
+  static const String _baseUrl = 'https://kisanalert-ai.onrender.com/api/v1/auth';
 
   static Future<String?> login(String phone, String name) async {
     try {

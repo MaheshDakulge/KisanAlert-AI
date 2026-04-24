@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 // Use --dart-define=API_URL=https://your-cloud-run-url.run.app/api/v1 to override
 const String _baseUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'http://127.0.0.1:8000/api/v1', // 127.0.0.1 maps to host via ADB reverse for physical devices
+  defaultValue: 'https://kisanalert-ai.onrender.com/api/v1', // Maps to live Render backend
 );
 
 // ── Data Models ────────────────────────────────────────────────────────────────
