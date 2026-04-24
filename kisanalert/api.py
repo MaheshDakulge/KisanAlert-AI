@@ -12,8 +12,9 @@ from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import os
+from google import genai
 from src.forecasting.multi_day_forecast import register_forecast_endpoint
 from src.voice.gemini_voice import register_gemini_endpoint
 
@@ -162,7 +163,7 @@ def get_alert_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _run_pipeline_bg(commodity: str, live_price: float = None, live_arrivals: float = None):
+def _run_pipeline_bg(commodity: str, live_price: Optional[float] = None, live_arrivals: Optional[float] = None):
     """Background worker — runs pipeline subprocess without blocking the API."""
     import subprocess
     try:
@@ -185,8 +186,8 @@ def _run_pipeline_bg(commodity: str, live_price: float = None, live_arrivals: fl
 def trigger_pipeline(
     background_tasks: BackgroundTasks,
     commodity: str = Query(..., description="Crop name to execute pipeline for"),
-    live_price: float = Query(None, description="Inject live scraped price"),
-    live_arrivals: float = Query(None, description="Inject live scraped arrivals")
+    live_price: Optional[float] = Query(None, description="Inject live scraped price"),
+    live_arrivals: Optional[float] = Query(None, description="Inject live scraped arrivals")
 ):
     """
     Triggers the ML pipeline asynchronously using BackgroundTasks —
@@ -659,7 +660,7 @@ async def get_current_weather(district: str = Query("Nanded", description="Marat
                 for i in range(min(7, len(daily.get("time", []))))
             ],
             "source": "Open-Meteo (free, real-time)",
-            "fetched_at": datetime.utcnow().isoformat() + "Z",
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
         }
 
         _weather_cache[district] = {"data": result, "ts": now}
