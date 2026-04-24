@@ -12,6 +12,7 @@ import 'screens/mandi_screen.dart';
 import 'screens/predict_screen.dart';
 import 'screens/weather_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/login_screen.dart';
 import 'modals/modals.dart';
 
 @pragma('vm:entry-point')
@@ -176,6 +177,10 @@ class _AppShellState extends State<AppShell> {
     // ── Cold-start splash: show while server is waking up ──────────────────────
     if (widget.state.isWakingUp) {
       return _WakeUpSplash(isDark: isDark, status: widget.state.loadingStatus);
+    }
+
+    if (!widget.state.isLoggedIn) {
+      return LoginScreen(state: widget.state);
     }
 
     final pages = [

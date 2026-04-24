@@ -109,7 +109,7 @@ class _PredictScreenState extends State<PredictScreen> {
             style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary)),
           const SizedBox(height: 12),
           SizedBox(
-            height: 300,
+            height: 320,
             child: ListView(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
@@ -411,7 +411,7 @@ class _XGBoostCard extends StatelessWidget {
     return Container(
       width: 240,
       margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,16 +423,16 @@ class _XGBoostCard extends StatelessWidget {
               decoration: BoxDecoration(color: AppColors.purplePale, borderRadius: BorderRadius.circular(4)),
               child: Text('ML', style: GoogleFonts.spaceGrotesk(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.purple))),
           ]),
-          const SizedBox(height: 8),
-          Text(prob.toStringAsFixed(2), style: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w800, color: prob > 0.65 ? AppColors.red : (prob > 0.35 ? AppColors.amber : AppColors.green))),
+          const SizedBox(height: 6),
+          Text(prob.toStringAsFixed(2), style: GoogleFonts.spaceGrotesk(fontSize: 30, fontWeight: FontWeight.w800, color: prob > 0.65 ? AppColors.red : (prob > 0.35 ? AppColors.amber : AppColors.green))),
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(color: prob > 0.65 ? AppColors.redPale : AppColors.greenPale, borderRadius: BorderRadius.circular(6)),
             child: Text(prob > 0.65 ? 'RED' : (prob > 0.35 ? 'AMBER' : 'GREEN'), style: GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w700, color: prob > 0.65 ? AppColors.redText : AppColors.greenText))),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text('SHAP Features', style: GoogleFonts.workSans(fontSize: 11, color: textMuted)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           ...shapBars.map((b) => Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.only(bottom: 3),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text(b.$1, style: GoogleFonts.jetBrainsMono(fontSize: 9, color: textMuted)),
@@ -442,14 +442,14 @@ class _XGBoostCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
-                  value: b.$2, minHeight: 5,
+                  value: b.$2, minHeight: 4,
                   backgroundColor: AppColors.purplePale,
                   valueColor: const AlwaysStoppedAnimation(AppColors.purple),
                 ),
               ),
             ]),
           )),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text('500 trees · max_depth 6 · SHAP explainer', style: GoogleFonts.jetBrainsMono(fontSize: 8, color: textMuted)),
         ],
       ),
