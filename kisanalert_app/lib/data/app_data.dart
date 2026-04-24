@@ -204,11 +204,30 @@ final List<CommunityStory> communityStories = [];
 // ── API Service ────────────────────────────────────────────────────────────────
 
 class ApiService {
+  // ── Render Cold-Start Wake-Up ────────────────────────────────────────────────
+  // Render free tier sleeps after 15 min. First request can take 30-50s.
+  // We ping the fast root endpoint and wait up to 55s, then the real calls succeed.
+  static Future<bool> wakeUp() async {
+    final rootUrl = _baseUrl.replaceAll('/api/v1', '');
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final res = await http.get(
+          Uri.parse(rootUrl),
+        ).timeout(const Duration(seconds: 20));
+        if (res.statusCode == 200) return true;
+      } catch (_) {
+        // Server still sleeping — wait a moment and retry
+        await Future.delayed(const Duration(seconds: 5));
+      }
+    }
+    return false; // offline fallback will handle
+  }
+
   static Future<Map<String, dynamic>?> getLatestAlert(String commodity, String district) async {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/alerts/latest?commodity=$commodity&district=$district'),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 40)); // extended for cold-start
       if (res.statusCode == 200) return json.decode(res.body);
     } catch (_) {}
     return null;
@@ -218,7 +237,7 @@ class ApiService {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/mandis/compare?commodity=$commodity'),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) return json.decode(res.body);
     } catch (_) {}
     return [];
@@ -228,7 +247,7 @@ class ApiService {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/alerts/history?commodity=$commodity&district=Nanded&limit=$limit'),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) return json.decode(res.body);
     } catch (_) {}
     return [];
@@ -248,7 +267,7 @@ class ApiService {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/community/stories?commodity=$commodity'),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) return json.decode(res.body);
     } catch (_) {}
     return [];
@@ -283,7 +302,7 @@ class ApiService {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/forecast/multi-day?commodity=$commodity'),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 20));
       if (res.statusCode == 200) {
         return ForecastData.fromJson(json.decode(res.body));
       }
@@ -296,7 +315,7 @@ class ApiService {
       final rootUrl = _baseUrl.replaceAll('/api/v1', '');
       final res = await http.get(
         Uri.parse('$rootUrl/accuracy?days=$days'),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
         return AccuracyStats.fromJson(json.decode(res.body));
       }
@@ -310,7 +329,7 @@ class ApiService {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/gemini/advisory?commodity=$commodity&district=Nanded'),
-      ).timeout(const Duration(seconds: 20));
+      ).timeout(const Duration(seconds: 25));
       if (res.statusCode == 200) {
         return json.decode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
       }
@@ -323,7 +342,7 @@ class ApiService {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/farmer/stats'),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) return json.decode(res.body);
     } catch (_) {}
     return null;

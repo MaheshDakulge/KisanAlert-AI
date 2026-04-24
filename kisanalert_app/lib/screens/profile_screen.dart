@@ -47,46 +47,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           const SizedBox(height: 16),
 
-          // Farmer card
+          // ── Farmer card ────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(24)),
+            decoration: BoxDecoration(
+              color: surface, borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.green.withValues(alpha: 0.08),
+                  blurRadius: 16, offset: const Offset(0, 4)),
+              ],
+            ),
             child: Column(
               children: [
                 Row(
                   children: [
+                    // Avatar with real initials
                     Container(
                       width: 72, height: 72,
                       decoration: const BoxDecoration(
-                        gradient: LinearGradient(colors: [AppColors.green, AppColors.greenVivid]),
+                        gradient: LinearGradient(
+                          colors: [AppColors.green, AppColors.greenVivid]),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: Text('MD', style: GoogleFonts.spaceGrotesk(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white)),
+                      child: Text(
+                        () {
+                          final name = widget.state.farmerName ?? 'K A';
+                          final parts = name.trim().split(' ');
+                          if (parts.length >= 2) {
+                            return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+                          }
+                          return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
+                        }(),
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 26, fontWeight: FontWeight.w700,
+                          color: Colors.white),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Mahesh Dakulge', style: GoogleFonts.spaceGrotesk(fontSize: 20, fontWeight: FontWeight.w800, color: textPrimary)),
-                          Text('📍 ${isMarathi ? "नांदेड, महाराष्ट्र" : "Nanded, Maharashtra"}',
-                            style: GoogleFonts.workSans(fontSize: 13, color: textMuted)),
-                          Text(isMarathi ? 'एप्रिल 2026 पासून · 12 एकर · 3 पिके' : 'Member since April 2026 · 12 acres · 3 crops',
-                            style: GoogleFonts.workSans(fontSize: 12, color: textMuted)),
+                          Text(
+                            widget.state.farmerName ?? 'Farmer',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 20, fontWeight: FontWeight.w800,
+                              color: textPrimary)),
+                          Text(
+                            '📍 ${widget.state.farmerVillage != null ? "${widget.state.farmerVillage}, " : ""}${widget.state.farmerDistrict ?? "Nanded"}, Maharashtra',
+                            style: GoogleFonts.workSans(
+                              fontSize: 13, color: textMuted)),
+                          Text(
+                            '${isMarathi ? "सदस्य" : "Member"} · '
+                            '${widget.state.farmerAcres != null ? "${widget.state.farmerAcres} acres · " : ""}'
+                            '${widget.state.farmerPhone ?? ""}',
+                            style: GoogleFonts.workSans(
+                              fontSize: 12, color: textMuted)),
                         ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
+                // Crop badge for selected primary crop
                 Wrap(
                   spacing: 8, runSpacing: 8,
-                  children: ['🌱 सोयाबीन', '🌿 कापूस', '🌾 हळद'].map((c) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: AppColors.greenPale, borderRadius: BorderRadius.circular(999)),
-                    child: Text(c, style: GoogleFonts.workSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.greenText)),
-                  )).toList(),
+                  children: [
+                    widget.state.farmerPrimaryCrop ?? widget.state.activeCrop,
+                    // always show all three for demo richness
+                    if ((widget.state.farmerPrimaryCrop ?? 'Soybean') != 'Soybean') 'Soybean',
+                    if ((widget.state.farmerPrimaryCrop ?? 'Cotton') != 'Cotton') 'Cotton',
+                  ].map((crop) {
+                    final emojis = {'Soybean':'🌱','Cotton':'🌿','Turmeric':'🌾'};
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.greenPale,
+                        borderRadius: BorderRadius.circular(999)),
+                      child: Text(
+                        '${emojis[crop] ?? "🌾"} $crop',
+                        style: GoogleFonts.workSans(
+                          fontSize: 13, fontWeight: FontWeight.w600,
+                          color: AppColors.greenText)),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                // Powered by Google row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Alerts by ',
+                      style: GoogleFonts.roboto(
+                        fontSize: 11, color: textMuted)),
+                    ...['G','o','o','g','l','e'].asMap().entries.map((e) {
+                      const cols = [
+                        Color(0xFF4285F4), Color(0xFFEA4335), Color(0xFFFBBC05),
+                        Color(0xFF4285F4), Color(0xFF34A853), Color(0xFFEA4335)];
+                      return Text(e.value,
+                        style: GoogleFonts.roboto(
+                          fontSize: 12, fontWeight: FontWeight.w700,
+                          color: cols[e.key]));
+                    }),
+                    Text(' Gemini AI · Firebase',
+                      style: GoogleFonts.roboto(
+                        fontSize: 11, color: textMuted)),
+                  ],
                 ),
               ],
             ),

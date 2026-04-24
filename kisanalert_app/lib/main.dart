@@ -173,6 +173,11 @@ class _AppShellState extends State<AppShell> {
     final isDark = widget.state.isDark;
     final bg = isDark ? AppColors.darkPageBg : AppColors.pageBg;
 
+    // ── Cold-start splash: show while server is waking up ──────────────────────
+    if (widget.state.isWakingUp) {
+      return _WakeUpSplash(isDark: isDark, status: widget.state.loadingStatus);
+    }
+
     final pages = [
       HomeScreen(state: widget.state, onOpenVoice: _openVoice, onOpenMandi: _openMandi, onOpenSignal: _openSignal),
       MandiScreen(state: widget.state, onOpenMandi: _openMandi),
@@ -358,20 +363,46 @@ class _TopAppBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // Notification bell
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurfaceRaised : AppColors.surfaceRaised,
-              shape: BoxShape.circle,
-            ),
-            child: Stack(
-              children: [
-                const Center(child: Icon(Icons.notifications_outlined, size: 20, color: AppColors.textMuted)),
-                Positioned(top: 8, right: 8,
-                  child: Container(width: 8, height: 8,
-                    decoration: const BoxDecoration(color: AppColors.red, shape: BoxShape.circle))),
-              ],
+          // ── Notification Bell (tappable) ──────────────────────────────
+          GestureDetector(
+            onTap: () {
+              state.markAllRead();
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => _NotificationPanel(state: state, isDark: isDark),
+              );
+            },
+            child: Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurfaceRaised : AppColors.surfaceRaised,
+                shape: BoxShape.circle,
+              ),
+              child: Stack(
+                children: [
+                  Center(child: Icon(Icons.notifications_outlined, size: 20,
+                    color: state.unreadCount > 0 ? AppColors.greenVivid : AppColors.textMuted)),
+                  if (state.unreadCount > 0)
+                    Positioned(
+                      top: 6, right: 6,
+                      child: Container(
+                        width: 14, height: 14,
+                        decoration: const BoxDecoration(
+                          color: AppColors.red, shape: BoxShape.circle),
+                        child: Center(
+                          child: Text(
+                            state.unreadCount > 9 ? '9+' : '${state.unreadCount}',
+                            style: const TextStyle(
+                              color: Colors.white, fontSize: 8,
+                              fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -538,3 +569,354 @@ class _GreenFABState extends State<_GreenFAB> with SingleTickerProviderStateMixi
     );
   }
 }
+
+// ── Notification Panel ────────────────────────────────────────────────────────
+class _NotificationPanel extends StatelessWidget {
+  final AppState state;
+  final bool isDark;
+  const _NotificationPanel({required this.state, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? AppColors.darkSurface : Colors.white;
+    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+    final notifs = state.notifications;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (_, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15), blurRadius: 24)],
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: textMuted.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2)),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.notifications_active_rounded,
+                      color: AppColors.greenVivid, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Market Alerts',
+                      style: GoogleFonts.spaceGrotesk(
+                          fontSize: 18, fontWeight: FontWeight.w800,
+                          color: textPrimary)),
+                  ),
+                  if (notifs.isNotEmpty)
+                    GestureDetector(
+                      onTap: () { state.markAllRead(); Navigator.pop(context); },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.greenVivid.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(999)),
+                        child: Text('Mark all read',
+                          style: GoogleFonts.workSans(
+                              fontSize: 12, fontWeight: FontWeight.w600,
+                              color: AppColors.greenVivid)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // List
+            Expanded(
+              child: notifs.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🔔', style: TextStyle(fontSize: 48)),
+                          const SizedBox(height: 12),
+                          Text('No alerts yet',
+                            style: GoogleFonts.workSans(
+                                fontSize: 16, color: textMuted)),
+                          Text('Alerts appear after market data loads',
+                            style: GoogleFonts.workSans(
+                                fontSize: 12, color: textMuted)),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      itemCount: notifs.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, indent: 56),
+                      itemBuilder: (_, i) {
+                        final n = notifs[i];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 4),
+                          leading: Container(
+                            width: 42, height: 42,
+                            decoration: BoxDecoration(
+                              color: AppColors.greenVivid.withValues(alpha: 0.1),
+                              shape: BoxShape.circle),
+                            child: Center(
+                              child: Text(n.emoji,
+                                  style: const TextStyle(fontSize: 20))),
+                          ),
+                          title: Text(n.title,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 13, fontWeight: FontWeight.w700,
+                              color: n.isRead
+                                  ? textMuted
+                                  : textPrimary)),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(n.body,
+                                style: GoogleFonts.workSans(
+                                    fontSize: 12, color: textMuted)),
+                              Text(n.timeAgo,
+                                style: GoogleFonts.workSans(
+                                    fontSize: 10,
+                                    color: AppColors.greenVivid)),
+                            ],
+                          ),
+                          trailing: n.isRead
+                              ? null
+                              : Container(
+                                  width: 8, height: 8,
+                                  decoration: const BoxDecoration(
+                                      color: AppColors.greenVivid,
+                                      shape: BoxShape.circle)),
+                        );
+                      },
+                    ),
+            ),
+            // Powered by Google footer
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Alerts powered by ',
+                    style: GoogleFonts.roboto(
+                        fontSize: 11, color: textMuted)),
+                  Text('G', style: GoogleFonts.roboto(
+                      fontSize: 12, fontWeight: FontWeight.w700,
+                      color: const Color(0xFF4285F4))),
+                  Text('o', style: GoogleFonts.roboto(
+                      fontSize: 12, fontWeight: FontWeight.w700,
+                      color: const Color(0xFFEA4335))),
+                  Text('o', style: GoogleFonts.roboto(
+                      fontSize: 12, fontWeight: FontWeight.w700,
+                      color: const Color(0xFFFBBC05))),
+                  Text('g', style: GoogleFonts.roboto(
+                      fontSize: 12, fontWeight: FontWeight.w700,
+                      color: const Color(0xFF4285F4))),
+                  Text('l', style: GoogleFonts.roboto(
+                      fontSize: 12, fontWeight: FontWeight.w700,
+                      color: const Color(0xFF34A853))),
+                  Text('e', style: GoogleFonts.roboto(
+                      fontSize: 12, fontWeight: FontWeight.w700,
+                      color: const Color(0xFFEA4335))),
+                  Text(' Gemini AI',
+                    style: GoogleFonts.roboto(
+                        fontSize: 11, color: textMuted)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Wake-Up Splash — real logo + Google branding ─────────────────────────────
+class _WakeUpSplash extends StatefulWidget {
+  final bool isDark;
+  final String status;
+  const _WakeUpSplash({required this.isDark, required this.status});
+
+  @override
+  State<_WakeUpSplash> createState() => _WakeUpSplashState();
+}
+
+class _WakeUpSplashState extends State<_WakeUpSplash>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1400))
+      ..repeat(reverse: true);
+    _pulse = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = widget.isDark ? AppColors.darkPageBg : const Color(0xFFF0F7F0);
+    final textPrimary =
+        widget.isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textMuted =
+        widget.isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+
+    return Scaffold(
+      backgroundColor: bg,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Real KisanAlert Logo ─────────────────────────────────────
+              AnimatedBuilder(
+                animation: _pulse,
+                builder: (_, child) => Transform.scale(
+                    scale: 1.0 + _pulse.value * 0.06, child: child),
+                child: Container(
+                  width: 120, height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.green.withValues(alpha: 0.3),
+                        blurRadius: 30, spreadRadius: 6),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/logo.jpg',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── App name ─────────────────────────────────────────────────
+              Text('KisanAlert',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 34, fontWeight: FontWeight.w800,
+                  color: AppColors.greenVivid)),
+              Text('AI-Powered Crop Price Alerts',
+                style: GoogleFonts.workSans(fontSize: 13, color: textMuted)),
+              const SizedBox(height: 12),
+
+              // ── Powered by Google ─────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: widget.isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : const Color(0xFFF1F3F4),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFFDADADA))),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text('Powered by ',
+                    style: GoogleFonts.roboto(
+                        fontSize: 11, color: const Color(0xFF5F6368))),
+                  ...['G','o','o','g','l','e'].asMap().entries.map((e) {
+                    const cols = [
+                      Color(0xFF4285F4), Color(0xFFEA4335), Color(0xFFFBBC05),
+                      Color(0xFF4285F4), Color(0xFF34A853), Color(0xFFEA4335)];
+                    return Text(e.value,
+                      style: GoogleFonts.roboto(
+                        fontSize: 12, fontWeight: FontWeight.w700,
+                        color: cols[e.key]));
+                  }),
+                ]),
+              ),
+              const SizedBox(height: 36),
+
+              // ── Animated dots ─────────────────────────────────────────────
+              AnimatedBuilder(
+                animation: _ctrl,
+                builder: (_, __) => Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(3, (i) {
+                    final delay = i / 3;
+                    final v = ((_ctrl.value - delay) % 1.0 + 1.0) % 1.0;
+                    final op = (v < 0.5 ? v * 2 : (1 - v) * 2).clamp(0.2, 1.0);
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 5),
+                      width: 10, height: 10,
+                      decoration: BoxDecoration(
+                        color: AppColors.greenVivid.withValues(alpha: op),
+                        shape: BoxShape.circle),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              Text(widget.status,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.workSans(
+                    fontSize: 14, fontWeight: FontWeight.w600,
+                    color: textPrimary)),
+              const SizedBox(height: 6),
+              Text('Free server tier — first load ~30 sec',
+                style: GoogleFonts.workSans(fontSize: 11, color: textMuted)),
+              const SizedBox(height: 32),
+
+              // ── Google tech stack badges ──────────────────────────────────
+              Wrap(
+                spacing: 8, runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  ('Gemini AI', '🤖', const Color(0xFF4285F4)),
+                  ('Maps SDK', '🗺️', const Color(0xFF34A853)),
+                  ('Firebase', '🔥', const Color(0xFFEA4335)),
+                  ('Cloud Run', '☁️', const Color(0xFFFBBC05)),
+                ].map((t) => Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: t.$3.withValues(alpha: 0.09),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                        color: t.$3.withValues(alpha: 0.25))),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Text(t.$2, style: const TextStyle(fontSize: 12)),
+                    const SizedBox(width: 4),
+                    Text(t.$1,
+                      style: GoogleFonts.roboto(
+                        fontSize: 11, fontWeight: FontWeight.w600,
+                        color: t.$3)),
+                  ]),
+                )).toList(),
+              ),
+              const SizedBox(height: 16),
+              Text('Google Solution Challenge 2026',
+                style: GoogleFonts.roboto(
+                    fontSize: 11, color: textMuted,
+                    fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

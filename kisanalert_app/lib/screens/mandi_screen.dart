@@ -220,93 +220,109 @@ class _MandiScreenState extends State<MandiScreen> {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
     final textMuted   = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-
-          // ── Google Maps Live Mandi Map ─────────────────────────────────────
-          _GoogleMandiMap(
-            isDark: isDark,
-            markers: _markers,
-            isReady: _mapReady,
-            isError: _mapError,
-            locationGranted: _locationGranted,
-            onMapCreated: (ctrl) {
-              _mapCtrl = ctrl;
-              setState(() => _mapReady = true);
-              if (_userPosition != null) {
-                ctrl.animateCamera(CameraUpdate.newLatLngZoom(
-                  LatLng(_userPosition!.latitude, _userPosition!.longitude), 10.0));
-              }
-            },
-            onError: () => setState(() { _mapError = true; _mapReady = false; }),
-            onFindNearestMandi: _findNearestMandi,
+    return Column(
+      children: [
+        // ── Map area — FULLY ISOLATED from the parent scroll ────────────────
+        // NotificationListener swallows scroll notifications that bubble up
+        // from inside the map so the outer list never hijacks map gestures.
+        NotificationListener<ScrollNotification>(
+          onNotification: (_) => true,
+          child: SizedBox(
+            height: 320,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: _GoogleMandiMap(
+                isDark: isDark,
+                markers: _markers,
+                isReady: _mapReady,
+                isError: _mapError,
+                locationGranted: _locationGranted,
+                onMapCreated: (ctrl) {
+                  _mapCtrl = ctrl;
+                  setState(() => _mapReady = true);
+                  if (_userPosition != null) {
+                    ctrl.animateCamera(CameraUpdate.newLatLngZoom(
+                      LatLng(_userPosition!.latitude, _userPosition!.longitude), 10.0));
+                  }
+                },
+                onError: () => setState(() { _mapError = true; _mapReady = false; }),
+                onFindNearestMandi: _findNearestMandi,
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
+        ),
 
-          // Map legend
-          _MapLegend(isDark: isDark, isMarathi: widget.state.isMarathi),
-          const SizedBox(height: 16),
+        // ── Scrollable content below the map ──────────────────────────────
+        Expanded(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
 
-          // Crop filter
-          _CropFilter(state: widget.state, isDark: isDark),
-          const SizedBox(height: 20),
+                // Map legend
+                _MapLegend(isDark: isDark, isMarathi: widget.state.isMarathi),
+                const SizedBox(height: 16),
 
-          // Ranked mandi list
-          Text(
-            widget.state.isMarathi ? 'आजचे सर्वोत्तम मंडी' : 'Best Mandis Today',
-            style: GoogleFonts.spaceGrotesk(
-                fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary),
+                // Crop filter
+                _CropFilter(state: widget.state, isDark: isDark),
+                const SizedBox(height: 20),
+
+                // Ranked mandi list
+                Text(
+                  widget.state.isMarathi ? 'आजचे सर्वोत्तम मंडी' : 'Best Mandis Today',
+                  style: GoogleFonts.spaceGrotesk(
+                      fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary),
+                ),
+                Text(
+                  widget.state.isMarathi ? 'नफ्यानुसार क्रम' : 'Ranked by net profit after transport cost',
+                  style: GoogleFonts.workSans(fontSize: 12, color: textMuted),
+                ),
+                const SizedBox(height: 12),
+
+                ...() {
+                  final sorted = [...widget.state.currentMandis]
+                    ..sort((a, b) => b.priceForCrop(widget.state.activeCrop)
+                        .compareTo(a.priceForCrop(widget.state.activeCrop)));
+                  final ranks = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣'];
+                  return sorted.asMap().entries.map((e) => MandiCard(
+                    rank: ranks[e.key < ranks.length ? e.key : ranks.length - 1],
+                    name: e.value.name,
+                    distanceKm: e.value.distanceKm,
+                    price: e.value.priceForCrop(widget.state.activeCrop),
+                    signal: e.value.signal,
+                    weather: e.value.weather,
+                    advice: e.value.advice,
+                    isDark: isDark,
+                    activeCrop: widget.state.activeCrop,
+                    isBest: e.value.isBest,
+                    onTap: () {
+                      widget.onOpenMandi(e.value);
+                      final coords = _mandiCoords[e.value.name];
+                      if (coords != null && _mapCtrl != null) {
+                        _mapCtrl!.animateCamera(
+                          CameraUpdate.newLatLngZoom(coords, 12.0),
+                        );
+                        _mapCtrl!.showMarkerInfoWindow(MarkerId(e.value.name));
+                      }
+                    },
+                  ));
+                }(),
+                const SizedBox(height: 20),
+
+                // Lead-Lag Engine card
+                _LeadLagCard(isDark: isDark, isMarathi: widget.state.isMarathi),
+                const SizedBox(height: 20),
+
+                // MSP Protection card
+                _MSPCard(isDark: isDark, isMarathi: widget.state.isMarathi),
+              ],
+            ),
           ),
-          Text(
-            widget.state.isMarathi ? 'नफ्यानुसार क्रम' : 'Ranked by net profit after transport cost',
-            style: GoogleFonts.workSans(fontSize: 12, color: textMuted),
-          ),
-          const SizedBox(height: 12),
-
-          ...() {
-            final sorted = [...widget.state.currentMandis]
-              ..sort((a, b) => b.priceForCrop(widget.state.activeCrop)
-                  .compareTo(a.priceForCrop(widget.state.activeCrop)));
-            final ranks = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣'];
-            return sorted.asMap().entries.map((e) => MandiCard(
-              rank: ranks[e.key < ranks.length ? e.key : ranks.length - 1],
-              name: e.value.name,
-              distanceKm: e.value.distanceKm,
-              price: e.value.priceForCrop(widget.state.activeCrop),
-              signal: e.value.signal,
-              weather: e.value.weather,
-              advice: e.value.advice,
-              isDark: isDark,
-              activeCrop: widget.state.activeCrop,
-              isBest: e.value.isBest,
-              onTap: () {
-                widget.onOpenMandi(e.value);
-                // Animate map camera to tapped mandi
-                final coords = _mandiCoords[e.value.name];
-                if (coords != null && _mapCtrl != null) {
-                  _mapCtrl!.animateCamera(
-                    CameraUpdate.newLatLngZoom(coords, 12.0),
-                  );
-                  _mapCtrl!.showMarkerInfoWindow(MarkerId(e.value.name));
-                }
-              },
-            ));
-          }(),
-          const SizedBox(height: 20),
-
-          // Lead-Lag Engine card
-          _LeadLagCard(isDark: isDark, isMarathi: widget.state.isMarathi),
-          const SizedBox(height: 20),
-
-          // MSP Protection card
-          _MSPCard(isDark: isDark, isMarathi: widget.state.isMarathi),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -26,6 +26,12 @@ class AppState extends ChangeNotifier {
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
+  // ── Wake-up / loading status ────────────────────────────────────────────────
+  bool _isWakingUp = false;
+  bool get isWakingUp => _isWakingUp;
+  String _loadingStatus = 'Connecting to server...';
+  String get loadingStatus => _loadingStatus;
+
   CropData? _currentCrop;
   CropData? get currentCrop => _currentCrop;
 
@@ -56,7 +62,27 @@ class AppState extends ChangeNotifier {
   Timer? _weatherTimer;
 
   AppState() {
-    fetchData();
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Step 1: Ping server to wake it up (handles Render cold start)
+    _isWakingUp = true;
+    _loadingStatus = isMarathi
+        ? 'सर्व्हर सुरू होत आहे... (~३० सेकंद)'
+        : 'Server waking up... (~30 sec)';
+    notifyListeners();
+
+    final alive = await ApiService.wakeUp();
+
+    _isWakingUp = false;
+    _loadingStatus = alive
+        ? (isMarathi ? 'डेटा लोड होत आहे...' : 'Loading data...')
+        : (isMarathi ? 'ऑफलाइन मोड' : 'Offline mode');
+    notifyListeners();
+
+    // Step 2: Load all data
+    await fetchData();
   }
 
   void setActiveCrop(String crop) {
@@ -246,6 +272,40 @@ class AppState extends ChangeNotifier {
       _accuracyStats = await ApiService.getAccuracyStats(days: 30);
       _farmerStats   = await ApiService.getFarmerStats();
 
+      // ── Generate notifications after every successful data fetch ─────────
+      if (_currentCrop != null && _currentCrop!.price > 0) {
+        final price = _currentCrop!.price.toStringAsFixed(0);
+        final level = _currentCrop!.alertLevel;
+
+        addNotification(AppNotification(
+          emoji: '📊',
+          title: '$_activeCrop price updated',
+          body: '₹$price/qtl — powered by Gemini AI + live Agmarknet data',
+        ));
+
+        if (level == 'RED') {
+          addNotification(AppNotification(
+            emoji: '🚨',
+            title: 'Price Crash Alert — $_activeCrop',
+            body: 'Do not sell today. Crash probability is high.',
+          ));
+        } else if (level == 'GREEN') {
+          addNotification(AppNotification(
+            emoji: '✅',
+            title: 'Good time to sell — $_activeCrop',
+            body: 'Market signal is GREEN at ₹$price/qtl.',
+          ));
+        }
+
+        if (_forecast != null) {
+          addNotification(AppNotification(
+            emoji: '🔮',
+            title: '10-day forecast ready',
+            body: '$_activeCrop: ${_forecast!.trend} trend — Gemini prediction updated.',
+          ));
+        }
+      }
+
     } catch (e) {
       _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'Network error — check backend.', msp: 0);
       _currentMandis = [];
@@ -295,18 +355,74 @@ class AppState extends ChangeNotifier {
 
   String t(String mr, String en) => _isMarathi ? mr : en;
 
-  // ── Farmer session ──────────────────────────────────────────────
+  // ── Farmer session ──────────────────────────────────────────────────────────
   String? farmerId;
   String? farmerName;
   String? farmerPhone;
+  String? farmerVillage;
+  String? farmerDistrict;
+  String? farmerAcres;
+  String? farmerPrimaryCrop;
 
-  Future<void> login(String id, String name, String phone) async {
-    farmerId   = id;
-    farmerName = name;
-    farmerPhone = phone;
+  Future<void> login(String id, String name, String phone, {
+    String village = '',
+    String district = 'Nanded',
+    String acres = '',
+    String primaryCrop = 'Soybean',
+  }) async {
+    farmerId         = id;
+    farmerName       = name;
+    farmerPhone      = phone;
+    farmerVillage    = village.isNotEmpty ? village : null;
+    farmerDistrict   = district;
+    farmerAcres      = acres.isNotEmpty ? acres : null;
+    farmerPrimaryCrop = primaryCrop;
+    // Switch active crop to the farmer's primary crop
+    _activeCrop = primaryCrop;
     notifyListeners();
     await fetchData();
   }
 
   bool get isLoggedIn => farmerId != null && farmerId!.isNotEmpty;
+
+  // ── Notifications ────────────────────────────────────────────────────────────
+  final List<AppNotification> _notifications = [];
+  List<AppNotification> get notifications => List.unmodifiable(_notifications);
+  int get unreadCount => _notifications.where((n) => !n.isRead).length;
+
+  void addNotification(AppNotification n) {
+    _notifications.insert(0, n); // newest first
+    if (_notifications.length > 50) _notifications.removeLast(); // cap at 50
+    notifyListeners();
+  }
+
+  void markAllRead() {
+    for (final n in _notifications) { n.isRead = true; }
+    notifyListeners();
+  }
+}
+
+// ── Notification Model ───────────────────────────────────────────────────────
+class AppNotification {
+  final String emoji;
+  final String title;
+  final String body;
+  final DateTime createdAt;
+  bool isRead;
+
+  AppNotification({
+    required this.emoji,
+    required this.title,
+    required this.body,
+    DateTime? createdAt,
+    this.isRead = false,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  String get timeAgo {
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
 }

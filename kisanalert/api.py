@@ -562,6 +562,114 @@ def get_farmer_stats():
         return {"total_alerts": 0, "crashes_caught": 0, "money_saved": "₹0", "alert_streak": 0}
 
 
+# ── Live Weather Endpoint ────────────────────────────────────────────────────
+# Fetches from Open-Meteo (free, no API key). Caches 30 min to avoid hammering.
+import httpx, time as _time
+_weather_cache: dict = {}
+_WEATHER_TTL = 1800  # 30 minutes
+
+DISTRICT_COORDS = {
+    "Nanded":    (18.6780, 77.2994),
+    "Latur":     (18.4088, 76.5604),
+    "Parbhani":  (19.2611, 76.7738),
+    "Hingoli":   (19.7173, 77.1498),
+    "Osmanabad": (18.1860, 76.0443),
+    "Beed":      (18.9890, 75.7598),
+}
+
+@app.get("/api/v1/weather/current", tags=["Weather"])
+async def get_current_weather(district: str = Query("Nanded", description="Marathwada district name")):
+    """
+    Returns live weather for any Marathwada district using Open-Meteo.
+    Caches for 30 minutes to stay fast and free.
+    """
+    now = _time.time()
+    # Return cache if fresh
+    if district in _weather_cache:
+        entry = _weather_cache[district]
+        if now - entry["ts"] < _WEATHER_TTL:
+            return entry["data"]
+
+    coords = DISTRICT_COORDS.get(district, DISTRICT_COORDS["Nanded"])
+    lat, lon = coords
+
+    url = (
+        f"https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        f"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,"
+        f"precipitation,weather_code,apparent_temperature"
+        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
+        f"wind_speed_10m_max,weather_code"
+        f"&timezone=Asia%2FKolkata&forecast_days=7"
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            raw = resp.json()
+
+        current = raw.get("current", {})
+        daily   = raw.get("daily", {})
+
+        # Map WMO weather code → description
+        def _desc(code):
+            if code == 0:   return "Clear sky"
+            if code <= 3:   return "Partly cloudy"
+            if code <= 48:  return "Fog"
+            if code <= 67:  return "Rain"
+            if code <= 77:  return "Snow"
+            if code <= 82:  return "Heavy rain"
+            if code <= 99:  return "Thunderstorm"
+            return "Unknown"
+
+        def _icon(code):
+            if code == 0:   return "01d"
+            if code <= 3:   return "02d"
+            if code <= 48:  return "50d"
+            if code <= 67:  return "10d"
+            if code <= 77:  return "13d"
+            if code <= 82:  return "09d"
+            return "11d"
+
+        wcode = current.get("weather_code", 0)
+        result = {
+            "district": district,
+            "lat": lat, "lon": lon,
+            "current": {
+                "temp_c":       round(current.get("temperature_2m", 0), 1),
+                "feels_like_c": round(current.get("apparent_temperature", 0), 1),
+                "humidity_pct": current.get("relative_humidity_2m", 0),
+                "wind_kmh":     round(current.get("wind_speed_10m", 0), 1),
+                "rain_mm":      round(current.get("precipitation", 0), 1),
+                "description":  _desc(wcode),
+                "icon":         _icon(wcode),
+                "weather_code": wcode,
+            },
+            "forecast_7day": [
+                {
+                    "date":      daily["time"][i],
+                    "max_c":     daily["temperature_2m_max"][i],
+                    "min_c":     daily["temperature_2m_min"][i],
+                    "rain_mm":   daily["precipitation_sum"][i],
+                    "wind_kmh":  daily["wind_speed_10m_max"][i],
+                    "description": _desc(daily["weather_code"][i]),
+                    "icon":      _icon(daily["weather_code"][i]),
+                }
+                for i in range(min(7, len(daily.get("time", []))))
+            ],
+            "source": "Open-Meteo (free, real-time)",
+            "fetched_at": datetime.utcnow().isoformat() + "Z",
+        }
+
+        _weather_cache[district] = {"data": result, "ts": now}
+        return result
+
+    except Exception as e:
+        log.error(f"Weather fetch failed for {district}: {e}")
+        raise HTTPException(status_code=503, detail=f"Weather fetch failed: {str(e)}")
+
+
 # ── Register Day 2 endpoints (once each) ────────────────────────────────────────
 register_forecast_endpoint(app)
 register_gemini_endpoint(app)
