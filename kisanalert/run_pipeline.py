@@ -259,7 +259,7 @@ def run(live_price: float = None, live_arrivals: float = None) -> dict:
     # ── Phase 9: Push to Supabase ──────────────────────────────────────────────
     try:
         from src.supabase_client import push_daily_alert, log_pipeline_run
-        log.info("[Phase 8] Pushing results to Supabase backend...")
+        log.info("[Phase 9] Pushing results to Supabase backend...")
         push_daily_alert(
             date=str(today_date.date()),
             price=today_price,
@@ -270,6 +270,32 @@ def run(live_price: float = None, live_arrivals: float = None) -> dict:
         log_pipeline_run(status="SUCCESS")
     except Exception as e:
         log.error("Failed to integrate with Supabase: %s", e)
+
+    # ── Phase 10: FCM Push Notification to Farmer's Phone ──────────────────────
+    try:
+        from src.alerts.fcm_notifier import broadcast_data_refresh, broadcast_crash_alert
+        log.info("[Phase 10] Sending FCM push notification to farmers...")
+
+        # Always send a DATA_REFRESH so the Flutter app silently reloads
+        broadcast_data_refresh(
+            commodity=config.TARGET_COMMODITY,
+            price=float(today_price),
+            alert_level=alert_lvl,
+            message_mr=msg if isinstance(msg, str) else str(msg),
+        )
+
+        # If RED alert, also send a loud CRASH ALERT notification
+        if alert_lvl == "RED":
+            broadcast_crash_alert(
+                commodity=config.TARGET_COMMODITY,
+                price=float(today_price),
+                alert_message=msg if isinstance(msg, str) else str(msg),
+            )
+            log.info("[Phase 10] 🚨 RED alert FCM sent for %s @ ₹%.0f", config.TARGET_COMMODITY, today_price)
+        else:
+            log.info("[Phase 10] ✅ DATA_REFRESH FCM sent for %s [%s] @ ₹%.0f", config.TARGET_COMMODITY, alert_lvl, today_price)
+    except Exception as e:
+        log.error("[Phase 10] FCM notification failed (non-blocking): %s", e)
 
     run_end = datetime.now()
     log.info("Pipeline completed in %.2f seconds.", (run_end - run_start).total_seconds())

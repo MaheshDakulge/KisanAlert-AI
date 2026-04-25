@@ -33,8 +33,36 @@ import xgboost as xgb
 log = logging.getLogger(__name__)
 
 
-CRASH_MODEL_PATH = "models/saved/xgb_v3_best.json"
 RISE_MODEL_PATH = "models/saved/xgb_blue_signal.json"
+
+
+def _get_crash_model_path() -> str:
+    """
+    Returns the correct crop-specific crash model path (absolute).
+    Priority:
+      1. xgb_v1_{crop}.json  (crop-specific trained model)
+      2. xgb_v3_best.json    (Soybean-only fallback)
+    """
+    import sys
+    from pathlib import Path
+    # Resolve models dir relative to this file: alert_engine.py → src/alerts/ → kisanalert/ → models/saved/
+    base_dir = Path(__file__).resolve().parents[2]
+    models_dir = base_dir / "models" / "saved"
+    sys.path.insert(0, str(base_dir))
+    try:
+        import config
+        crop = config.TARGET_COMMODITY.lower()
+        crop_path = models_dir / f"xgb_v1_{crop}.json"
+        if crop_path.exists():
+            return str(crop_path)
+        # Soybean fallback to v3 best
+        if crop == "soybean":
+            v3 = models_dir / "xgb_v3_best.json"
+            if v3.exists():
+                return str(v3)
+    except Exception:
+        pass
+    return str(models_dir / "xgb_v3_best.json")
 
 # Trust-adjusted thresholds
 CRASH_THRESHOLD = 0.65          # crash > this → RED
@@ -73,21 +101,31 @@ MESSAGES = {
 
 
 _crash_model: Optional[xgb.XGBClassifier] = None
+_crash_model_path_loaded: str = ""
 _rise_model: Optional[xgb.XGBClassifier] = None
 
 
 def load_models() -> tuple[xgb.XGBClassifier, Optional[xgb.XGBClassifier]]:
-    """Load both models. Rise model is optional (falls back to 3-signal)."""
-    global _crash_model, _rise_model
+    """Load both models. Rise model is optional (falls back to 3-signal).
+    
+    Crash model is resolved dynamically per-crop so Cotton/Turmeric/Soybean
+    each get their own trained model instead of sharing xgb_v3_best.json.
+    """
+    global _crash_model, _crash_model_path_loaded, _rise_model
 
-    if _crash_model is None:
-        if not Path(CRASH_MODEL_PATH).exists():
+    # Resolve correct path for the current crop
+    crash_model_path = _get_crash_model_path()
+
+    # Reload crash model if crop has changed since last call
+    if _crash_model is None or crash_model_path != _crash_model_path_loaded:
+        if not Path(crash_model_path).exists():
             raise FileNotFoundError(
-                f"Crash model missing at {CRASH_MODEL_PATH}. Run fix_auc_v2.py first."
+                f"Crash model missing at {crash_model_path}. Run training first."
             )
         _crash_model = xgb.XGBClassifier()
-        _crash_model.load_model(CRASH_MODEL_PATH)
-        log.info("Loaded crash model (AUC 0.76): %s", CRASH_MODEL_PATH)
+        _crash_model.load_model(crash_model_path)
+        _crash_model_path_loaded = crash_model_path
+        log.info("Loaded crash model: %s", crash_model_path)
 
     if _rise_model is None:
         if Path(RISE_MODEL_PATH).exists():
