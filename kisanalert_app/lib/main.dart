@@ -211,8 +211,6 @@ class _AppShellState extends State<AppShell> {
         bottom: false,
         child: Column(
           children: [
-            // Status bar simulation
-            _StatusBar(isDark: isDark),
             // Top app bar
             _TopAppBar(
               title: pageTitles[widget.state.activeTab][0],
@@ -264,36 +262,6 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-// ── Status Bar ──────────────────────────────────────────────────────
-class _StatusBar extends StatelessWidget {
-  final bool isDark;
-  const _StatusBar({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final textColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('9:41', style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w700, color: textColor)),
-          Row(children: [
-            Icon(Icons.signal_cellular_4_bar, size: 14, color: textColor),
-            const SizedBox(width: 4),
-            Text('4G', style: GoogleFonts.spaceGrotesk(fontSize: 11, color: textColor)),
-            const SizedBox(width: 6),
-            Icon(Icons.wifi, size: 14, color: textColor),
-            const SizedBox(width: 6),
-            Icon(Icons.battery_full, size: 14, color: textColor),
-            const SizedBox(width: 2),
-            Text('100%', style: GoogleFonts.spaceGrotesk(fontSize: 11, color: textColor)),
-          ]),
-        ],
-      ),
-    );
-  }
-}
 
 // ── Top App Bar ─────────────────────────────────────────────────────
 class _TopAppBar extends StatelessWidget {

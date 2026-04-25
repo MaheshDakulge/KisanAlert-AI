@@ -368,24 +368,26 @@ class _GoogleMandiMap extends StatelessWidget {
         child: Stack(
           children: [
             if (!isError)
-              GoogleMap(
-                onMapCreated: onMapCreated,
-                initialCameraPosition: const CameraPosition(
-                  target: _marathwadaCenter,
-                  zoom: 8.2,
-                ),
-                style: isDark ? _darkMapStyle : null,
-                markers: markers,
-                mapType: MapType.normal,
-                myLocationEnabled: locationGranted,        // blue dot when allowed
-                myLocationButtonEnabled: locationGranted,  // top-right GPS button
-                zoomControlsEnabled: false,
-                compassEnabled: true,
-                mapToolbarEnabled: false,
-                gestureRecognizers: {
-                  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
-                },
-              )
+              kIsWeb
+                ? _WebMapPlaceholder(isDark: isDark)
+                : GoogleMap(
+                    onMapCreated: onMapCreated,
+                    initialCameraPosition: const CameraPosition(
+                      target: _marathwadaCenter,
+                      zoom: 8.2,
+                    ),
+                    style: isDark ? _darkMapStyle : null,
+                    markers: markers,
+                    mapType: MapType.normal,
+                    myLocationEnabled: locationGranted,        // blue dot when allowed
+                    myLocationButtonEnabled: locationGranted,  // top-right GPS button
+                    zoomControlsEnabled: false,
+                    compassEnabled: true,
+                    mapToolbarEnabled: false,
+                    gestureRecognizers: {
+                      Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                    },
+                  )
             else
               _MapErrorFallback(isDark: isDark),
 
@@ -680,6 +682,47 @@ class _MSPCard extends StatelessWidget {
                         fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.blueText)),
                   )),
         ],
+      ),
+    );
+  }
+}
+
+// ── Web Map Placeholder (shown on Chrome/Web since Maps API key is not web-authorized) ──
+class _WebMapPlaceholder extends StatelessWidget {
+  final bool isDark;
+  const _WebMapPlaceholder({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? const Color(0xFF1A2A1A) : const Color(0xFFE8F5E9);
+    final textColor = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final mutedColor = isDark ? AppColors.darkTextSecondary : AppColors.textMuted;
+    return Container(
+      color: bg,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.map_outlined, size: 64, color: AppColors.green.withValues(alpha: 0.6)),
+            const SizedBox(height: 16),
+            Text('मराठवाडा APMC मंडी नकाशा',
+                style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w700, color: textColor)),
+            const SizedBox(height: 6),
+            Text('Nanded · Latur · Hingoli · Parbhani · Osmanabad',
+                style: GoogleFonts.workSans(fontSize: 12, color: mutedColor),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.greenPale,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('📱 Full map available on mobile app',
+                  style: GoogleFonts.workSans(fontSize: 12, color: AppColors.greenText, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
       ),
     );
   }

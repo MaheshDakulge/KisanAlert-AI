@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import '../data/app_data.dart';
 import '../db_helper.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+
 class AppState extends ChangeNotifier {
   // Language
   bool _isMarathi = true;
@@ -66,7 +68,22 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _init() async {
-    // Step 1: Ping server to wake it up (handles Render cold start)
+    // Step 1: Load saved preferences
+    final prefs = await SharedPreferences.getInstance();
+    farmerId = prefs.getString('farmerId');
+    if (farmerId != null) {
+      farmerName = prefs.getString('farmerName');
+      farmerPhone = prefs.getString('farmerPhone');
+      farmerVillage = prefs.getString('farmerVillage');
+      farmerDistrict = prefs.getString('farmerDistrict');
+      farmerAcres = prefs.getString('farmerAcres');
+      farmerPrimaryCrop = prefs.getString('farmerPrimaryCrop');
+      if (farmerPrimaryCrop != null && farmerPrimaryCrop!.isNotEmpty) {
+        _activeCrop = farmerPrimaryCrop!.split(',').first.trim();
+      }
+    }
+
+    // Step 2: Ping server to wake it up (handles cold start)
     _isWakingUp = true;
     _loadingStatus = isMarathi
         ? 'सर्व्हर सुरू होत आहे... (~३० सेकंद)'
@@ -377,10 +394,30 @@ class AppState extends ChangeNotifier {
     farmerDistrict   = district;
     farmerAcres      = acres.isNotEmpty ? acres : null;
     farmerPrimaryCrop = primaryCrop;
+    
+    // Save to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('farmerId', id);
+    await prefs.setString('farmerName', name);
+    await prefs.setString('farmerPhone', phone);
+    if (village.isNotEmpty) await prefs.setString('farmerVillage', village);
+    await prefs.setString('farmerDistrict', district);
+    if (acres.isNotEmpty) await prefs.setString('farmerAcres', acres);
+    await prefs.setString('farmerPrimaryCrop', primaryCrop);
+
     // Switch active crop to the farmer's first selected crop
     _activeCrop = primaryCrop.split(',').first.trim();
     notifyListeners();
     await fetchData();
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    farmerId = null;
+    farmerName = null;
+    farmerPhone = null;
+    notifyListeners();
   }
 
   bool get isLoggedIn => farmerId != null && farmerId!.isNotEmpty;

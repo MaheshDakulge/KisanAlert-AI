@@ -198,22 +198,22 @@ def start_scheduler():
         replace_existing=True,
     )
 
-    # Job 2: Full pipeline at 5:05 PM IST every weekday
+    # Job 2: Full pipeline at 3:30 PM IST every weekday (10:00 UTC)
     _scheduler.add_job(
         _job_run_pipeline,
-        trigger=CronTrigger(day_of_week="mon-fri", hour=11, minute=35, timezone="UTC"),
+        trigger=CronTrigger(day_of_week="mon-fri", hour=10, minute=0, timezone="UTC"),
         id="run_pipeline",
-        name="Run ML Pipeline + FCM Broadcast (5:05 PM IST)",
+        name="Run ML Pipeline + FCM Broadcast (3:30 PM IST)",
         misfire_grace_time=600,
         replace_existing=True,
     )
 
-    # Job 3: Weather refresh every 2 hours
+    # Job 3: Weather refresh every 1 hour
     _scheduler.add_job(
         _job_refresh_weather,
-        trigger=CronTrigger(minute=0, hour="*/2", timezone="UTC"),
+        trigger=CronTrigger(minute=0, hour="*/1", timezone="UTC"),
         id="refresh_weather",
-        name="Weather Cache Refresh (2h)",
+        name="Weather Cache Refresh (1h)",
         misfire_grace_time=120,
         replace_existing=True,
     )
@@ -221,9 +221,9 @@ def start_scheduler():
     _scheduler.start()
     log.info("=" * 55)
     log.info("[Scheduler] ✅ KisanAlert Smart Scheduler STARTED")
-    log.info("[Scheduler]   Job 1: NCDEX fetch   → 3:35 PM IST daily (Mon-Fri)")
-    log.info("[Scheduler]   Job 2: ML pipeline   → 5:05 PM IST daily (Mon-Fri)")
-    log.info("[Scheduler]   Job 3: Weather cache → every 2 hours")
+    log.info("[Scheduler]   Job 1: NCDEX fetch   → 3:25 PM IST daily (Mon-Fri)")
+    log.info("[Scheduler]   Job 2: ML pipeline   → 3:30 PM IST daily (Mon-Fri)")
+    log.info("[Scheduler]   Job 3: Weather cache → every 1 hour")
     log.info("=" * 55)
 
 

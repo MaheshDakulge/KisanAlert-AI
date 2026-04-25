@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen>
   List<String> _selectedCrops = ['Soybean'];
   bool _isLoading = false;
   bool _isGoogleLoading = false;
+  bool _isLoginMode = true;
 
   late AnimationController _fadeCtrl;
   late Animation<double> _fade;
@@ -51,19 +52,29 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _submitPhone() async {
-    if (_nameCtrl.text.trim().isEmpty || _phoneCtrl.text.trim().length < 10) {
-      _showSnack('Please enter your name and a 10-digit mobile number');
+    if (_phoneCtrl.text.trim().length < 10) {
+      _showSnack('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    if (!_isLoginMode && _nameCtrl.text.trim().isEmpty) {
+      _showSnack('Please enter your full name');
       return;
     }
     setState(() => _isLoading = true);
-    final id = await AuthService.login(_phoneCtrl.text.trim(), _nameCtrl.text.trim());
+    
+    // In login mode, we just pass the phone. Name can be empty.
+    final id = await AuthService.login(
+      _phoneCtrl.text.trim(), 
+      _isLoginMode ? 'Farmer' : _nameCtrl.text.trim()
+    );
+    
     await widget.state.login(
       id ?? 'offline_${_phoneCtrl.text}',
-      _nameCtrl.text.trim(),
+      _isLoginMode ? 'Farmer' : _nameCtrl.text.trim(),
       _phoneCtrl.text.trim(),
-      village: _villageCtrl.text.trim(),
+      village: _isLoginMode ? '' : _villageCtrl.text.trim(),
       district: _district,
-      acres: _acresCtrl.text.trim(),
+      acres: _isLoginMode ? '' : _acresCtrl.text.trim(),
       primaryCrop: _selectedCrops.join(', '),
     );
     if (mounted) setState(() => _isLoading = false);
@@ -117,27 +128,30 @@ class _LoginScreenState extends State<LoginScreen>
             children: [
               const SizedBox(height: 56),
 
-              // ── Logo ──────────────────────────────────────────────────────
+              // ── Header Section ─────────────────────────────────────────────
               Center(
                 child: Container(
-                  width: 110, height: 110,
+                  width: 90, height: 90,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
                     boxShadow: [
-                      BoxShadow(color: AppColors.green.withValues(alpha: 0.25),
-                          blurRadius: 24, spreadRadius: 4),
+                      BoxShadow(color: AppColors.greenVivid.withValues(alpha: 0.3),
+                          blurRadius: 30, spreadRadius: 5, offset: const Offset(0, 10)),
                     ],
                   ),
                   child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/logo.jpg',
-                      fit: BoxFit.contain,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Image.asset(
+                        'assets/images/logo.jpg',
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // ── App title ─────────────────────────────────────────────────
               Text('KisanAlert',
@@ -155,46 +169,49 @@ class _LoginScreenState extends State<LoginScreen>
 
               // ── Form card ─────────────────────────────────────────────────
               Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(28),
                 decoration: BoxDecoration(
-                  color: surface,
-                  borderRadius: BorderRadius.circular(20),
+                  color: surface.withValues(alpha: isDark ? 0.9 : 1.0),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withValues(alpha: isDark ? 0.1 : 0.8), width: 1.5),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.07),
-                        blurRadius: 20, offset: const Offset(0, 6)),
+                    BoxShadow(color: AppColors.green.withValues(alpha: isDark ? 0.15 : 0.08),
+                        blurRadius: 40, offset: const Offset(0, 12), spreadRadius: -5),
                   ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Your Profile',
+                    Text(_isLoginMode ? 'Welcome Back' : 'Create Profile',
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 18, fontWeight: FontWeight.w700, color: textPrimary)),
-                    Text('We personalise alerts for your farm',
-                      style: GoogleFonts.workSans(fontSize: 12, color: textMuted)),
-                    const SizedBox(height: 20),
+                        fontSize: 22, fontWeight: FontWeight.w700, color: textPrimary)),
+                    Text(_isLoginMode ? 'Sign in to access your farm alerts' : 'We personalise alerts for your farm',
+                      style: GoogleFonts.workSans(fontSize: 13, color: textMuted)),
+                    const SizedBox(height: 24),
 
-                    // Name
-                    _Field(ctrl: _nameCtrl, label: '👤 Full Name *',
-                      hint: 'e.g. Mahesh Dakulge', isDark: isDark, keyboardType: TextInputType.name),
-                    const SizedBox(height: 14),
-
-                    // Phone
-                    _Field(ctrl: _phoneCtrl, label: '📱 Mobile Number *',
+                    // Phone is always shown
+                    _Field(ctrl: _phoneCtrl, label: 'Mobile Number *', prefixIcon: Icons.phone_outlined,
                       hint: '10-digit number', isDark: isDark,
                       keyboardType: TextInputType.phone, maxLength: 10),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
 
-                    // Village
-                    _Field(ctrl: _villageCtrl, label: '🏘️ Village / Town',
-                      hint: 'e.g. Biloli, Mukhed...', isDark: isDark),
-                    const SizedBox(height: 14),
+                    // Extra fields only for Sign Up
+                    if (!_isLoginMode) ...[
+                      // Name
+                      _Field(ctrl: _nameCtrl, label: 'Full Name *', prefixIcon: Icons.person_outline,
+                        hint: 'e.g. Mahesh Dakulge', isDark: isDark, keyboardType: TextInputType.name),
+                      const SizedBox(height: 16),
 
-                    // District dropdown
-                    Text('📍 District',
-                      style: GoogleFonts.workSans(fontSize: 13,
-                        fontWeight: FontWeight.w600, color: textPrimary)),
-                    const SizedBox(height: 6),
+                      // Village
+                      _Field(ctrl: _villageCtrl, label: 'Village / Town', prefixIcon: Icons.home_work_outlined,
+                        hint: 'e.g. Biloli, Mukhed...', isDark: isDark),
+                      const SizedBox(height: 16),
+
+                      // District dropdown
+                      Text('District',
+                        style: GoogleFonts.workSans(fontSize: 13,
+                          fontWeight: FontWeight.w600, color: textPrimary)),
+                      const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
@@ -217,19 +234,19 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
 
                     // Acres
-                    _Field(ctrl: _acresCtrl, label: '🌾 Farm Size (acres)',
+                    _Field(ctrl: _acresCtrl, label: 'Farm Size (acres)', prefixIcon: Icons.landscape_outlined,
                       hint: 'e.g. 5', isDark: isDark,
                       keyboardType: TextInputType.number),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 20),
 
                     // Primary crop
-                    Text('🌱 Primary Crop',
+                    Text('Primary Crop',
                       style: GoogleFonts.workSans(fontSize: 13,
                         fontWeight: FontWeight.w600, color: textPrimary)),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         ('Soybean', '🌱', 'सोयाबीन'),
@@ -271,10 +288,11 @@ class _LoginScreenState extends State<LoginScreen>
                         );
                       }).toList(),
                     ),
+                    ], // End of Sign Up fields
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
               // ── Google Sign-In button ──────────────────────────────────────
               _GoogleSignInButton(
@@ -299,13 +317,24 @@ class _LoginScreenState extends State<LoginScreen>
                       ? const SizedBox(height: 22, width: 22,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2))
-                      : Text('Continue with Phone →',
+                      : Text(_isLoginMode ? 'Sign In →' : 'Create Account →',
                           style: GoogleFonts.spaceGrotesk(
                             fontSize: 16, fontWeight: FontWeight.w700,
                             color: Colors.white)),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+
+              // ── Toggle Login / Sign Up ──────────────────────────────────────
+              TextButton(
+                onPressed: () => setState(() => _isLoginMode = !_isLoginMode),
+                style: TextButton.styleFrom(foregroundColor: AppColors.greenVivid),
+                child: Text(
+                  _isLoginMode ? "Don't have an account? Sign Up" : 'Already have an account? Sign In',
+                  style: GoogleFonts.workSans(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // ── Google tech stack footer ───────────────────────────────────
               _GoogleTechRow(),
@@ -325,49 +354,46 @@ class _Field extends StatelessWidget {
   final bool isDark;
   final TextInputType? keyboardType;
   final int? maxLength;
+  final IconData prefixIcon;
+
   const _Field({required this.ctrl, required this.label, required this.hint,
-    required this.isDark, this.keyboardType, this.maxLength});
+    required this.isDark, this.keyboardType, this.maxLength, required this.prefixIcon});
 
   @override
   Widget build(BuildContext context) {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-          style: GoogleFonts.workSans(
-            fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: ctrl,
-          keyboardType: keyboardType,
-          maxLength: maxLength,
-          style: GoogleFonts.workSans(fontSize: 14, color: textPrimary),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: GoogleFonts.workSans(
-              color: textPrimary.withValues(alpha: 0.35), fontSize: 13),
-            counterText: '',
-            filled: true,
-            fillColor: isDark
-                ? AppColors.darkSurfaceRaised
-                : const Color(0xFFF8FFF8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                  color: AppColors.green.withValues(alpha: 0.4))),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                  color: AppColors.green.withValues(alpha: 0.3))),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.greenVivid, width: 2)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          ),
-        ),
-      ],
+    return TextField(
+      controller: ctrl,
+      keyboardType: keyboardType,
+      maxLength: maxLength,
+      style: GoogleFonts.workSans(fontSize: 15, color: textPrimary, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.workSans(color: textPrimary.withValues(alpha: 0.6), fontSize: 14),
+        floatingLabelStyle: GoogleFonts.workSans(color: AppColors.greenVivid, fontSize: 14, fontWeight: FontWeight.w600),
+        hintText: hint,
+        hintStyle: GoogleFonts.workSans(
+          color: textPrimary.withValues(alpha: 0.3), fontSize: 14),
+        counterText: '',
+        filled: true,
+        fillColor: isDark
+            ? AppColors.darkSurfaceRaised
+            : Colors.grey.shade50,
+        prefixIcon: Icon(prefixIcon, color: AppColors.green.withValues(alpha: 0.8), size: 20),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+              color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+              color: Colors.grey.shade300)),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.greenVivid, width: 2)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
     );
   }
 }

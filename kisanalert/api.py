@@ -62,6 +62,72 @@ def root():
         "docs_url": "/docs"
     }
 
+# ── Auth Endpoints (called by Flutter login screen) ────────────────────────────
+
+class LoginRequest(BaseModel):
+    phone_number: str
+    name: str
+    district: str = "Nanded"
+    language: str = "mr"
+    fcm_token: str = ""
+
+class PreferencesRequest(BaseModel):
+    farmer_id: str
+    crop_name: str
+    alert_whatsapp: bool = True
+    alert_sms: bool = False
+    alert_voice: bool = False
+
+@app.post("/api/v1/auth/login", tags=["Auth"])
+def farmer_login(req: LoginRequest):
+    """
+    Upserts a farmer record in Supabase and returns farmer_id.
+    Called by the Flutter app when a farmer logs in for the first time.
+    """
+    try:
+        supabase = get_supabase()
+        import uuid
+        # Check if farmer already exists by phone number
+        result = supabase.table("farmers").select("id").eq("phone_number", req.phone_number).limit(1).execute()
+        if result.data:
+            farmer_id = str(result.data[0]["id"])
+        else:
+            # Create new farmer record
+            farmer_id = str(uuid.uuid4())
+            supabase.table("farmers").insert({
+                "id": farmer_id,
+                "phone_number": req.phone_number,
+                "name": req.name,
+                "district": req.district,
+                "language": req.language,
+                "fcm_token": req.fcm_token,
+                "crop_name": "Soybean",
+            }).execute()
+        return {"farmer_id": farmer_id, "name": req.name, "status": "ok"}
+    except Exception as e:
+        log.error(f"Login error: {e}")
+        # Return a local UUID so the app still works even if Supabase is down
+        import uuid
+        return {"farmer_id": str(uuid.uuid4()), "name": req.name, "status": "offline"}
+
+@app.post("/api/v1/auth/preferences", tags=["Auth"])
+def save_preferences(req: PreferencesRequest):
+    """
+    Saves farmer alert preferences to Supabase.
+    """
+    try:
+        supabase = get_supabase()
+        supabase.table("farmers").update({
+            "crop_name": req.crop_name,
+            "alert_whatsapp": req.alert_whatsapp,
+            "alert_sms": req.alert_sms,
+            "alert_voice": req.alert_voice,
+        }).eq("id", req.farmer_id).execute()
+        return {"status": "ok"}
+    except Exception as e:
+        log.error(f"Preferences error: {e}")
+        return {"status": "ok"}  # Graceful fallback
+
 @app.get("/api/v1/alerts/latest", response_model=AlertResponse, tags=["Alerts"])
 def get_latest_alert(
     commodity: str = Query(..., description="Crop name (e.g., Soybean, Cotton, Turmeric)"),
