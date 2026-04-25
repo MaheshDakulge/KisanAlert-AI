@@ -302,7 +302,7 @@ class ApiService {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/forecast/multi-day?commodity=$commodity'),
-      ).timeout(const Duration(seconds: 20));
+      ).timeout(const Duration(seconds: 45));
       if (res.statusCode == 200) {
         return ForecastData.fromJson(json.decode(res.body));
       }

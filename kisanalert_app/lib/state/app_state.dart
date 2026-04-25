@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import '../data/app_data.dart';
-import '../db_helper.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -117,22 +116,7 @@ class AppState extends ChangeNotifier {
       var alertData = await ApiService.getLatestAlert(_activeCrop, 'Nanded');
       
       // Offline caching logic
-      if (alertData != null) {
-        // Cache the successful fetch
-        alertData['created_at'] = DateTime.now().toIso8601String();
-        await DatabaseHelper().cacheAlerts([alertData]);
-      } else {
-        // Fetch from cache if API failed
-        final cached = await DatabaseHelper().getCachedAlerts();
-        if (cached.isNotEmpty) {
-          final matched = cached.where((a) => a['commodity'] == _activeCrop).toList();
-          if (matched.isNotEmpty) {
-            alertData = matched.first;
-            // Append offline notice to message
-            alertData['message'] = "[OFFLINE CACHE] " + (alertData['message'] ?? "");
-          }
-        }
-      }
+      // Offline caching logic removed to prevent web crash
 
       if (alertData != null) {
         _currentCrop = CropData(
@@ -324,7 +308,7 @@ class AppState extends ChangeNotifier {
       }
 
     } catch (e) {
-      _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'Network error — check backend.', msp: 0);
+      _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'ERROR: $e', msp: 0);
       _currentMandis = [];
       _currentSignals = [];
       _currentForecast = [];

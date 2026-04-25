@@ -252,7 +252,7 @@ class _HeroDecisionCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            subtitle,
+            crop.price == 0 ? "DEBUG: ${crop.message}" : subtitle,
             style: GoogleFonts.workSans(
               fontSize: 13,
               color: isDark ? AppColors.darkTextSecondary : AppColors.textMuted,

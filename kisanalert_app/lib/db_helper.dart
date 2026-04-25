@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -43,6 +44,7 @@ class DatabaseHelper {
   }
 
   Future<void> cacheAlerts(List<dynamic> alerts) async {
+    if (kIsWeb) return; // Skip caching on web
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete('alerts'); // clear old cache
@@ -61,6 +63,7 @@ class DatabaseHelper {
   }
 
   Future<List<Map<String, dynamic>>> getCachedAlerts() async {
+    if (kIsWeb) return []; // No cache on web
     final db = await database;
     return await db.query('alerts', orderBy: 'created_at DESC');
   }

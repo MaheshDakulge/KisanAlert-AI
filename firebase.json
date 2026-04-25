@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "kisanalert-ai",
     "public": "public",
     "ignore": [
       "firebase.json",

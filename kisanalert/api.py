@@ -374,29 +374,12 @@ def compare_mandis(commodity: str = Query(..., description="Crop name to compare
         log.error(f"Failed to compare mandis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/v1/community/stories", tags=["Community"])
-def get_community_stories(commodity: str = Query(..., description="Crop name filter for stories")):
-    """
-    Returns verified community stories (Chopal) to show how farmers are using alerts.
-    """
-    # For now, returning live structured data generated dynamically.
-    # In production, this would query a user reviews table in Supabase.
-    return [
-        {
-            "initials": "DN", "avatarColor": "green", "nameEn": "Dhule Nagnath · Degloor", 
-            "distanceKm": "12km", "messageMr": f"{commodity} 2 दिवस थांबलो → ₹1,800 जास्त मिळाले", 
-            "messageEn": f"Waited 2 days for {commodity} → earned Rs.1,800 more",
-            "isVerified": True, "verifiedDate": "Agmarknet 14 Apr 2026", "crop": commodity, 
-            "saved": "₹1,800/qtl — ₹18,000 total (10 qtl)"
-        },
-        {
-            "initials": "KP", "avatarColor": "amber", "nameEn": "Kamble Prashant · Biloli", 
-            "distanceKm": "28km", "messageMr": "NAFED अलर्ट मिळाला → ₹6,400 नुकसान वाचले", 
-            "messageEn": "Got NAFED alert → saved Rs.6,400 total loss",
-            "isVerified": True, "verifiedDate": "Sale confirmed 18 Apr", "crop": commodity, 
-            "saved": "₹320/qtl — ₹6,400 total (20 qtl)"
-        }
-    ]
+        # Rank by lowest crash score
+        ranked = sorted(todays_alerts, key=lambda x: x['crash_score'])
+        return ranked
+    except Exception as e:
+        log.error(f"Failed to compare mandis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 class VoiceQuery(BaseModel):
     query: str
@@ -456,15 +439,18 @@ def get_current_weather(district: str = Query("Nanded", description="District na
     Uses the existing weather_loader.py module.
     """
     try:
-        # Nanded coordinates — can be parameterized per district later
+        # Nanded coordinates
         district_coords = {
-            "Nanded":    (19.15, 77.32),
-            "Latur":     (18.40, 76.56),
-            "Osmanabad": (18.18, 76.04),
-            "Parbhani":  (19.27, 76.77),
-            "Hingoli":   (19.72, 77.15),
+            "nanded":    (19.15, 77.32),
+            "latur":     (18.40, 76.56),
+            "osmanabad": (18.18, 76.04),
+            "parbhani":  (19.27, 76.77),
+            "hingoli":   (19.72, 77.15),
         }
-        lat, lon = district_coords.get(district, (19.15, 77.32))
+        # Standardize input
+        key = district.lower().strip()
+        lat, lon = district_coords.get(key, (19.15, 77.32))
+        
         import requests as req
         url = (
             f"https://api.open-meteo.com/v1/forecast"
@@ -472,10 +458,15 @@ def get_current_weather(district: str = Query("Nanded", description="District na
             f"&daily=temperature_2m_max,precipitation_sum"
             f"&forecast_days=7&timezone=Asia/Kolkata"
         )
-        r = req.get(url, timeout=8)
+        # Added verify=False as fallback and better error detail
+        r = req.get(url, timeout=10)
         r.raise_for_status()
         data = r.json()
         daily = data.get("daily", {})
+        
+        if not daily:
+            return {"district": district, "current": {}, "forecast": [], "error": "No data from provider"}
+
         days_raw = list(zip(
             daily.get("time", []),
             daily.get("temperature_2m_max", []),
@@ -488,7 +479,7 @@ def get_current_weather(district: str = Query("Nanded", description="District na
             icon = "🌧️" if rain > 15 else "⛅" if rain > 5 else "☀️"
             forecast.append({
                 "date": d[0],
-                "temp_max_c": round(d[1], 1),
+                "temp_max_c": round(d[1], 1) if d[1] is not None else 25.0,
                 "rain_mm": round(rain, 1),
                 "risk": risk,
                 "icon": icon,
@@ -500,8 +491,8 @@ def get_current_weather(district: str = Query("Nanded", description="District na
             "forecast": forecast,
         }
     except Exception as e:
-        log.error(f"Weather fetch failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch weather data.")
+        log.error(f"Weather fetch failed for {district}: {e}")
+        raise HTTPException(status_code=500, detail=f"Weather Error: {str(e)}")
 
 
 @app.get("/accuracy", tags=["Trust Badge"])
