@@ -40,14 +40,21 @@ share/python-wheels/
 *.egg
 
 # KisanAlert specific
-kisanalert/data/
+kisanalert/data/processed/
+kisanalert/data/cache/
 kisanalert/logs/
 logs/
-models/
 data/cache/
 data/processed/
 *.sqlite3
 *.db
+
+# Allow models and raw data
+!kisanalert/models/saved/*.json
+!kisanalert/models/saved/*.keras
+!kisanalert/models/saved/*.npz
+!kisanalert/models/saved/*.txt
+!kisanalert/data/raw/*.csv
 
 # Secrets
 firebase-adminsdk.json

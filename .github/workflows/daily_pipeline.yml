@@ -1,0 +1,53 @@
+# KisanAlert — Daily ML Pipeline (Auto-Scheduler)
+# Runs every day at 8:00 AM IST (2:30 AM UTC)
+# Fetches latest mandi data → runs ML prediction → pushes alert to Supabase
+
+name: Daily Price Pipeline
+
+on:
+  schedule:
+    - cron: '30 2 * * *'   # 8:00 AM IST = 2:30 AM UTC, every day
+  workflow_dispatch:        # Also allows manual trigger from GitHub UI
+
+jobs:
+  run-pipeline:
+    name: Run KisanAlert Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Create Firebase Admin SDK JSON
+        run: |
+          echo "${{ secrets.FIREBASE_ADMIN_SDK_JSON }}" > kisanalert/firebase-adminsdk.json
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r kisanalert/requirements.txt
+
+      - name: Run Daily Pipeline
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DATAGOV_API_KEY: ${{ secrets.DATAGOV_API_KEY }}
+          FIREBASE_ADMIN_SDK_JSON: ${{ secrets.FIREBASE_ADMIN_SDK_JSON }}
+          PYTHONIOENCODING: utf-8
+        run: |
+          cd kisanalert
+          python ../run_pipeline.py
+
+      - name: Upload Pipeline Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-log-${{ github.run_number }}
+          path: kisanalert/logs/
+          retention-days: 7

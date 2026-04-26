@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime
 
 # ── Bootstrap path so imports resolve from project root ───────────────────────
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent / "kisanalert"
 sys.path.insert(0, str(ROOT))
 
 import config
@@ -63,6 +63,31 @@ def run() -> dict:
         log.error("❌ Feature engineering failed: %s", e)
         sys.exit(1)
 
+    # ── Phase 3: Inject Live Data (Automation Upgrade) ─────────────────────────
+    log.info("[Phase 3] Fetching live data for real-time automation...")
+    try:
+        from src.data.live_price_fetcher import fetch_live_price
+        live_data = fetch_live_price(config.TARGET_COMMODITY, config.TARGET_DISTRICT)
+        
+        # If we got live data, inject it as the final row for prediction
+        # (Only if it's newer or we want to ensure today's price is represented)
+        last_date = df_features['date'].iloc[-1].date()
+        today = datetime.now().date()
+        
+        if live_data:
+            log.info("✅ Live data fetched: ₹%.0f/qtl in %s", live_data['modal_price'], live_data['market'])
+            # Create a new row matching the features structure
+            # For this simple hackathon pipeline, we'll replace the last row's price/qty
+            # if the CSV is lagging behind today.
+            df_features.loc[df_features.index[-1], "modal_price"] = live_data['modal_price']
+            df_features.loc[df_features.index[-1], "arrival_qty"] = live_data['arrival_qty']
+            if "min_price" in df_features.columns:
+                df_features.loc[df_features.index[-1], "min_price"] = live_data.get('min_price', live_data['modal_price'])
+            if "max_price" in df_features.columns:
+                df_features.loc[df_features.index[-1], "max_price"] = live_data.get('max_price', live_data['modal_price'])
+    except Exception as e:
+        log.warning("⚠️ Live data fetch failed, continuing with CSV data: %s", e)
+
     # ── Phase 4: Load saved model (training was done separately) ──────────────
     log.info("[Phase 4] Loading saved model...")
     try:
@@ -77,16 +102,32 @@ def run() -> dict:
         sys.exit(1)
 
     # ── Inference: most recent row ─────────────────────────────────────────────
-    from src.features.engineer import FEATURE_COLUMNS
+    # The model v3 expects exactly 32 features as listed below:
+    MODEL_FEATURES = [
+        'modal_price', 'arrival_qty', 'min_price', 'max_price', 'hingoli_price', 
+        'latur_price', 'parbhani_price', 'surrounding_price', 'usd_inr', 'cbot_close', 
+        'cbot_weekly_change', 'price_spread_ratio', 'price_velocity', 'price_trend_30d', 
+        'arrival_ratio', 'price_vs_7d_avg', 'rain_7d_sum', 'temp_7d_avg', 
+        'is_raining_today', 'weather_shock_flag', 'month', 'day_of_week', 'year_norm', 
+        'price_wave_lag_score', 'acceleration', 'distance_from_min', 'trend_strength', 
+        'drawdown_7', 'cbot_price_inr', 'cbot_7day_trend', 'days_from_harvest_start', 'msp_gap'
+    ]
 
     today_row   = df_features.iloc[-1]
     today_date  = today_row["date"]
     today_price = today_row["modal_price"]
-    X_today     = df_features[FEATURE_COLUMNS].iloc[[-1]]   # shape (1, n_features)
+    
+    # Ensure all required features exist in df_features
+    for col in MODEL_FEATURES:
+        if col not in df_features.columns:
+            log.warning(f"Feature {col} missing in engineered data. Filling with 0.")
+            df_features[col] = 0.0
+
+    X_today     = df_features[MODEL_FEATURES].iloc[[-1]]   # shape (1, 32)
 
     X_yesterday = None
     if len(df_features) >= 2:
-        X_yesterday = df_features[FEATURE_COLUMNS].iloc[[-2]]
+        X_yesterday = df_features[MODEL_FEATURES].iloc[[-2]]
 
     log.info("[Predict] Running inference on %s (₹%.0f/qtl)", today_date.date(), today_price)
 
@@ -113,12 +154,19 @@ def run() -> dict:
         prob_today,
         soft_score,
     )
-    from src.alerts.alert_engine import generate_alert, print_alert
+    from src.alerts.alert_engine import generate_alert
+    
+    # Calculate peak for the 4-signal logic
+    price_30d_max = float(df_features["modal_price"].tail(30).max())
+    recent_prices = df_features["modal_price"].tail(14)
 
     alert = generate_alert(
-        crash_score=soft_score,
-        date=str(today_date.date()),
-        price=today_price,
+        features_row=X_today,
+        current_price=today_price,
+        price_30d_max=price_30d_max,
+        recent_prices=recent_prices,
+        crop=config.TARGET_COMMODITY,
+        district=config.TARGET_DISTRICT
     )
 
     # ── Final console output ───────────────────────────────────────────────────
@@ -131,8 +179,8 @@ def run() -> dict:
     print(f"Raw Prob    : {prob_today:.2f}")
     print(f"Prev Prob   : {prob_yesterday:.2f}")
     print(f"Soft Score  : {soft_score:.2f}")
-    print(f"Alert Level : {alert['icon']} {alert['alert_level']}")
-    print(f"Message     : {alert['marathi_message']}")
+    print(f"Alert Level : {alert['alert_level']}")
+    print(f"Message     : {alert['message_marathi']}")
     print("=" * 40)
 
     # ── Phase 8: Push to Supabase ──────────────────────────────────────────────
@@ -144,11 +192,37 @@ def run() -> dict:
             price=today_price,
             crash_score=soft_score,
             alert_level=alert['alert_level'],
-            message=alert['marathi_message']
+            message=alert['message_marathi']
         )
         log_pipeline_run(status="SUCCESS")
     except Exception as e:
         log.error("Failed to integrate with Supabase: %s", e)
+
+    # ── Phase 10: FCM Push Notification to Farmer's Phone ──────────────────────
+    try:
+        from src.alerts.fcm_notifier import broadcast_data_refresh, broadcast_crash_alert
+        log.info("[Phase 10] Sending FCM push notification to farmers...")
+
+        # Always send a DATA_REFRESH so the Flutter app silently reloads
+        broadcast_data_refresh(
+            commodity=config.TARGET_COMMODITY,
+            price=float(today_price),
+            alert_level=alert['alert_level'],
+            message_mr=alert['message_marathi'],
+        )
+
+        # If RED alert, also send a loud CRASH ALERT notification
+        if alert['alert_level'] == "RED":
+            broadcast_crash_alert(
+                commodity=config.TARGET_COMMODITY,
+                price=float(today_price),
+                alert_message=alert['message_marathi'],
+            )
+            log.info("[Phase 10] 🚨 RED alert FCM sent for %s @ ₹%.0f", config.TARGET_COMMODITY, today_price)
+        else:
+            log.info("[Phase 10] ✅ DATA_REFRESH FCM sent for %s [%s] @ ₹%.0f", config.TARGET_COMMODITY, alert['alert_level'], today_price)
+    except Exception as e:
+        log.error("[Phase 10] FCM notification failed (non-blocking): %s", e)
 
     run_end = datetime.now()
     log.info("Pipeline completed in %.2f seconds.", (run_end - run_start).total_seconds())
