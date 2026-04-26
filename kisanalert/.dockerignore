@@ -10,3 +10,6 @@ venv/
 .venv/
 logs/
 .git/
+scratch/
+backups/
+data/

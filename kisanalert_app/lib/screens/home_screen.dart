@@ -183,16 +183,25 @@ class _HeroDecisionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final level = crop.alertLevel;
-    final color = _levelColor(level);
-    final bgColor = _levelBgColor(level, isDark);
-    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-
-    final decision = _getDecision(level, isMarathi);
-    final subtitle = _getSubtitle(level, forecast, isMarathi);
-
     final day10Price = forecast?.day10Predicted ?? crop.price;
     final day10Change = forecast?.day10ChangePct ?? 0.0;
+
+    // Dynamically calculate alert level based on AI forecast trend
+    String dynamicLevel = 'AMBER'; // Default stable
+    if (day10Price > crop.price + 10) {
+      dynamicLevel = 'BLUE'; // Price is rising -> HOLD
+    } else if (day10Price < crop.price - 10) {
+      dynamicLevel = 'RED'; // Price is crashing -> SELL NOW
+    } else {
+      dynamicLevel = 'AMBER'; // Stable -> YOUR CHOICE
+    }
+
+    final color = _levelColor(dynamicLevel);
+    final bgColor = _levelBgColor(dynamicLevel, isDark);
+    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+
+    final decision = _getDecision(dynamicLevel, isMarathi);
+    final subtitle = _getSubtitle(dynamicLevel, forecast, isMarathi);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -293,38 +302,34 @@ class _HeroDecisionCard extends StatelessWidget {
   String _getDecision(String level, bool mr) {
     switch (level) {
       case 'RED':
-        return mr ? '🚨 विकू नका!' : '🚨 DO NOT SELL';
+        return mr ? '📉 आजच विक्री करा!' : '📉 SELL NOW!';
       case 'BLUE':
-        return mr ? '💎 थांबा' : '💎 HOLD';
+        return mr ? '📈 प्रतीक्षा करा!' : '📈 HOLD';
       case 'GREEN':
         return mr ? '✅ आजच विका!' : '✅ SELL TODAY';
       default:
-        return mr ? '🟡 तुमची निवड' : '🟡 YOUR CHOICE';
+        return mr ? '⚖️ बाजार स्थिर आहे' : '⚖️ STABLE MARKET';
     }
   }
 
   String _getSubtitle(String level, ForecastData? f, bool mr) {
-    final days = level == 'BLUE' ? 10 : 7;
     switch (level) {
       case 'RED':
         return mr
-            ? '$days दिवसात भाव पडण्याचा अंदाज\nCrash predicted in $days days'
-            : 'Price crash predicted in $days days';
+            ? 'भाव घसरण्याची शक्यता आहे. संभाव्य नुकसान टाळण्यासाठी लगेच विक्री करा.'
+            : 'Prices expected to drop. Sell today to prevent potential losses.';
       case 'BLUE':
-        final gain = f?.day10Predicted ?? 0;
-        final curr = f?.currentPrice ?? 0;
-        final diff = (gain - curr).toStringAsFixed(0);
         return mr
-            ? '$days दिवसात ₹$diff+ वाढणार\nPrice will rise in $days days'
-            : 'Price will rise ₹$diff+ in $days days';
+            ? 'पुढील १० दिवसांत भाव वाढण्याची शक्यता आहे. अधिक नफ्यासाठी साठा ठेवा.'
+            : 'Price expected to rise in the next 10 days. Hold stock for higher profits.';
       case 'GREEN':
         return mr
             ? '३० दिवसांतील सर्वोच्च भाव आहे\nHighest price in 30 days'
             : 'Highest price in 30 days';
       default:
         return mr
-            ? 'भाव स्थिर आहे, गरजेनुसार निर्णय घ्या\nMarket stable, decide as needed'
-            : 'Market stable, decide as needed';
+            ? 'कोणताही मोठा बदल अपेक्षित नाही. आपल्या आर्थिक गरजेनुसार निर्णय घ्या.'
+            : 'No major fluctuations expected. Sell based on your immediate cash needs.';
     }
   }
 

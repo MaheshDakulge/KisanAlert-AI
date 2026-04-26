@@ -14,6 +14,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
 import os
+import time as _time
+import httpx
 from google import genai
 from src.forecasting.multi_day_forecast import register_forecast_endpoint
 from src.voice.gemini_voice import register_gemini_endpoint
@@ -381,118 +383,9 @@ def compare_mandis(commodity: str = Query(..., description="Crop name to compare
         log.error(f"Failed to compare mandis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-class VoiceQuery(BaseModel):
-    query: str
-    commodity: str
-
-@app.post("/api/v1/voice/query", tags=["Intelligence"])
-def voice_query(request: VoiceQuery):
-    """
-    Takes voice text input from the app, gets the latest predictions, 
-    and uses Gemini to answer the farmer in native Marathi.
-    """
-    try:
-        # 1. Get latest alert
-        supabase = get_supabase()
-        result = supabase.table("daily_alerts").select("*").eq("commodity", request.commodity).order("date", desc=True).limit(1).execute()
-        
-        context = "No alerts found currently."
-        if result.data:
-            alert = dict(result.data[0]) # type: ignore
-            alert_price = alert.get('price', 0.0)
-            alert_crash_score = alert.get('crash_score', 0.0)
-            if isinstance(alert_crash_score, (int, float)):
-                alert_crash_score = float(alert_crash_score)
-            else:
-                alert_crash_score = 0.0
-            context = f"Today's price for {alert.get('commodity')} in {alert.get('district')} is Rs {alert_price}. There is a {alert_crash_score * 100}% probability of a price crash. The AI says: {alert.get('message')}"
-
-        # 2. Call Gemini
-        if not os.getenv("GEMINI_API_KEY"):
-            return {"marathi_response": "Sorry, Gemini API Key is missing. [Fallback Mock Marathi Response]"}
-
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        
-        prompt = f"""
-        You are an expert agriculture agent helping a farmer in Maharashtra.
-        They asked: "{request.query}"
-        
-        Here is the current backend market data context:
-        {context}
-        
-        Respond ONLY in clear, natural Marathi language. Keep it very concise (1-2 sentences).
-        """
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-        return {"marathi_response": response.text.strip()}
-    except Exception as e:
-        log.error(f"Voice query failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to serve AI response.")
 
 
-@app.get("/api/v1/weather/current", tags=["Weather"])
-def get_current_weather(district: str = Query("Nanded", description="District name")):
-    """
-    Returns live weather data from Open-Meteo (no API key required).
-    Uses the existing weather_loader.py module.
-    """
-    try:
-        # Nanded coordinates
-        district_coords = {
-            "nanded":    (19.15, 77.32),
-            "latur":     (18.40, 76.56),
-            "osmanabad": (18.18, 76.04),
-            "parbhani":  (19.27, 76.77),
-            "hingoli":   (19.72, 77.15),
-        }
-        # Standardize input
-        key = district.lower().strip()
-        lat, lon = district_coords.get(key, (19.15, 77.32))
-        
-        import requests as req
-        url = (
-            f"https://api.open-meteo.com/v1/forecast"
-            f"?latitude={lat}&longitude={lon}"
-            f"&daily=temperature_2m_max,precipitation_sum"
-            f"&forecast_days=7&timezone=Asia/Kolkata"
-        )
-        # Added verify=False as fallback and better error detail
-        r = req.get(url, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        daily = data.get("daily", {})
-        
-        if not daily:
-            return {"district": district, "current": {}, "forecast": [], "error": "No data from provider"}
-
-        days_raw = list(zip(
-            daily.get("time", []),
-            daily.get("temperature_2m_max", []),
-            daily.get("precipitation_sum", []),
-        ))
-        forecast = []
-        for d in days_raw:
-            rain = d[2] or 0.0
-            risk = "HIGH" if rain > 15 else "MED" if rain > 5 else "LOW"
-            icon = "🌧️" if rain > 15 else "⛅" if rain > 5 else "☀️"
-            forecast.append({
-                "date": d[0],
-                "temp_max_c": round(d[1], 1) if d[1] is not None else 25.0,
-                "rain_mm": round(rain, 1),
-                "risk": risk,
-                "icon": icon,
-            })
-        current = forecast[0] if forecast else {}
-        return {
-            "district": district,
-            "current": current,
-            "forecast": forecast,
-        }
-    except Exception as e:
-        log.error(f"Weather fetch failed for {district}: {e}")
-        raise HTTPException(status_code=500, detail=f"Weather Error: {str(e)}")
+# Weather logic moved below to consolidated async endpoint
 
 
 @app.get("/accuracy", tags=["Trust Badge"])
@@ -696,6 +589,7 @@ async def get_current_weather(district: str = Query("Nanded", description="Marat
             "lat": lat, "lon": lon,
             "current": {
                 "temp_c":       round(current.get("temperature_2m", 0), 1),
+                "temp_max_c":   round(daily.get("temperature_2m_max", [0])[0], 1),
                 "feels_like_c": round(current.get("apparent_temperature", 0), 1),
                 "humidity_pct": current.get("relative_humidity_2m", 0),
                 "wind_kmh":     round(current.get("wind_speed_10m", 0), 1),
@@ -703,12 +597,13 @@ async def get_current_weather(district: str = Query("Nanded", description="Marat
                 "description":  _desc(wcode),
                 "icon":         _icon(wcode),
                 "weather_code": wcode,
+                "risk":         "HIGH" if round(current.get("precipitation", 0), 1) > 15 else "MED" if round(current.get("precipitation", 0), 1) > 5 else "LOW",
             },
-            "forecast_7day": [
+            "forecast": [
                 {
                     "date":      daily["time"][i],
-                    "max_c":     daily["temperature_2m_max"][i],
-                    "min_c":     daily["temperature_2m_min"][i],
+                    "temp_max_c": daily["temperature_2m_max"][i],
+                    "temp_min_c": daily["temperature_2m_min"][i],
                     "rain_mm":   daily["precipitation_sum"][i],
                     "wind_kmh":  daily["wind_speed_10m_max"][i],
                     "description": _desc(daily["weather_code"][i]),

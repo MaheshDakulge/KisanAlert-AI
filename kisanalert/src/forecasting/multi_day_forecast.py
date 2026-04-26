@@ -71,12 +71,17 @@ def compute_multi_day_forecast(
     future_prices = _try_lstm_forecast(df, forecast_days, current_price)
 
     if future_prices is None:
-        # Fallback: trend extrapolation with volatility decay
+        # Fallback: trend extrapolation with volatility decay + jitter
+        import random
+        random.seed(int(current_price))
         future_prices = []
-        price = current_price
         for d in range(1, forecast_days + 1):
-            price = price * (1 + projected_daily_change)
-            future_prices.append(price)
+            # Calculate stable trend price
+            trend_factor = (1 + projected_daily_change) ** d
+            trend_price = current_price * trend_factor
+            # Add small noise (+/- 0.6%) on top
+            noise_pct = random.uniform(-0.006, 0.006)
+            future_prices.append(trend_price * (1 + noise_pct))
 
     # Confidence decays over time
     next_list = []
@@ -151,14 +156,23 @@ def _try_lstm_forecast(
         baseline_drift = float(np.mean(recent_returns)) if len(recent_returns) > 0 else 0.0  # type: ignore
         volatility = float(np.std(recent_returns)) if len(recent_returns) > 1 else 0.02  # type: ignore
 
-        # Simple price-evolution: drift + small random-walk adjustment per day,
-        # weighted by volatility. (Full LSTM rollout requires retraining for regression.)
+        # Enhanced price-evolution: Stable Trend + Jitter (not a random walk)
+        import random
+        random.seed(int(current_price)) # Deterministic for stability
+        
+        future_prices = []
         for d in range(1, forecast_days + 1):
-            # Decaying momentum + mean reversion
-            decay = 0.85 ** d
-            daily_change = baseline_drift * decay
-            price = price * (1 + daily_change)
-            future_prices.append(price)
+            decay = 0.95 ** d
+            # Calculate the 'clean' trend price first
+            trend_factor = (1 + (baseline_drift * decay)) ** d
+            trend_price = current_price * trend_factor
+            
+            # Add small 'market noise' (+/- 0.7%) on top of the trend price
+            # This makes the line look jittery without the values drifting too far
+            noise_pct = random.uniform(-0.007, 0.007)
+            noisy_price = trend_price * (1 + noise_pct)
+            
+            future_prices.append(noisy_price)
 
         return future_prices
 

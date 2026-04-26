@@ -3,6 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../data/app_data.dart';
 import '../widgets/shared_widgets.dart';
+import 'package:flutter/foundation.dart';
+import 'package:record/record.dart';
+import 'package:http/http.dart' as http;
+import 'dart:io';
 
 // ───────────────────────────────────────────────────────────────────
 // MODAL 1 — Voice AI Full-Screen Overlay
@@ -30,6 +34,10 @@ class _VoiceModalState extends State<VoiceModal> with TickerProviderStateMixin {
   String? _answer;
   late AnimationController _rippleCtrl;
 
+  final AudioRecorder _recorder = AudioRecorder();
+  bool _isRecording = false;
+  String _statusText = '';
+
   final _answers = {
     'आज सर्वोत्तम मंडी कुठे?': 'आज सोयाबीनसाठी उस्मानाबाद सर्वोत्तम आहे — ₹5,200 मिळतो, नांदेडपेक्षा ₹398 जास्त. ट्रक खर्च ₹900 धरला तरी फायदा होतो.',
     'सोयाबीन कधी विकायचे?': 'सध्या RED अलर्ट आहे. कृपया मंगळवारपर्यंत थांबा — ₹5,600 पर्यंत जाण्याची शक्यता आहे.',
@@ -42,6 +50,11 @@ class _VoiceModalState extends State<VoiceModal> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _rippleCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
+    _initSpeech();
+  }
+
+  void _initSpeech() async {
+    // Permission handled during recording start
   }
 
   @override
@@ -50,26 +63,113 @@ class _VoiceModalState extends State<VoiceModal> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _startListening() {
-    setState(() { _state = 'listening'; _answer = null; });
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _state = 'responding');
-      Future.delayed(const Duration(milliseconds: 500), () {
+  void _startRecording() async {
+    try {
+      if (await _recorder.hasPermission()) {
+        // Use default config, record package handles platform-specific defaults
+        const config = RecordConfig();
+        
+        await _recorder.start(config, path: '');
+        
+        setState(() {
+          _state = 'listening';
+          _isRecording = true;
+          _answer = null;
+        });
+      } else {
         if (mounted) {
-          setState(() {
-          _answer = 'आज सोयाबीनसाठी उस्मानाबाद सर्वोत्तम आहे — ₹5,200 मिळतो, नांदेडपेक्षा ₹398 जास्त. ट्रक खर्च ₹900 धरला तरी फायदा होतो.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(widget.isMarathi ? 'कृपया मायक्रोफोन परवानगी द्या' : 'Please allow microphone access')),
+          );
+        }
+      }
+    } catch (e) {
+      print("Start recording failed: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(widget.isMarathi ? 'रेकॉर्डिंग सुरू करता आले नाही' : 'Could not start recording')),
+        );
+      }
+    }
+  }
+
+  void _stopRecording() async {
+    try {
+      final path = await _recorder.stop();
+      setState(() { 
+        _state = 'responding'; 
+        _isRecording = false;
+      });
+
+      if (path != null) {
+        Uint8List audioBytes;
+        if (kIsWeb) {
+          // On web, path is a blob URL
+          final response = await http.get(Uri.parse(path));
+          audioBytes = response.bodyBytes;
+        } else {
+          // On mobile, path is a local file path
+          audioBytes = await File(path).readAsBytes();
+        }
+        
+        _uploadAudio(audioBytes);
+      } else {
+        setState(() { _state = 'idle'; });
+      }
+    } catch (e) {
+      print("Stop recording failed: $e");
+      setState(() { _state = 'idle'; });
+    }
+  }
+
+  void _uploadAudio(Uint8List bytes) async {
+    try {
+      final response = await ApiService.uploadVoiceAudio(
+        bytes, 
+        kIsWeb ? "voice.webm" : "voice.m4a",
+        widget.activeCrop,
+        "Nanded" // Defaulting as per point 2 ignore
+      );
+      
+      if (mounted) {
+        setState(() {
+          _answer = response ?? (widget.isMarathi ? "क्षमस्व, मला उत्तर मिळाले नाही." : "Sorry, I couldn't get an answer.");
           _state = 'idle';
         });
-        }
-      });
-    });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _answer = widget.isMarathi ? "काहीतरी चूक झाली. पुन्हा प्रयत्न करा." : "Something went wrong. Try again.";
+          _state = 'idle';
+        });
+      }
+    }
+  }
+
+  void _processQuery(String query) async {
+    setState(() { _state = 'responding'; _answer = null; });
+    
+    try {
+      final response = await ApiService.getVoiceAnswer(query, widget.activeCrop);
+      if (mounted) {
+        setState(() {
+          _answer = response ?? (widget.isMarathi ? "क्षमस्व, मला उत्तर मिळाले नाही." : "Sorry, I couldn't get an answer.");
+          _state = 'idle';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _answer = widget.isMarathi ? "काहीतरी चूक झाली. पुन्हा प्रयत्न करा." : "Something went wrong. Try again.";
+          _state = 'idle';
+        });
+      }
+    }
   }
 
   void _askQuestion(String q) {
-    setState(() { _state = 'responding'; _answer = null; });
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) setState(() { _answer = _answers[q]; _state = 'idle'; });
-    });
+    _processQuery(q);
   }
 
   @override
@@ -130,7 +230,7 @@ class _VoiceModalState extends State<VoiceModal> with TickerProviderStateMixin {
 
                         // Mic button
                         GestureDetector(
-                          onTap: _state == 'idle' ? _startListening : null,
+                          onTap: _state == 'idle' ? _startRecording : _stopRecording,
                           child: AnimatedBuilder(
                             animation: _rippleCtrl,
                             builder: (_, child) {
@@ -174,6 +274,14 @@ class _VoiceModalState extends State<VoiceModal> with TickerProviderStateMixin {
                             },
                           ),
                         ),
+                        if (_state == 'listening')
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              isMarathi ? 'आवाज रेकॉर्ड होत आहे...' : 'Recording your voice...',
+                              style: GoogleFonts.workSans(color: AppColors.greenVivid, fontSize: 16, fontStyle: FontStyle.italic),
+                            ),
+                          ),
                         const SizedBox(height: 32),
 
                         // Sample questions

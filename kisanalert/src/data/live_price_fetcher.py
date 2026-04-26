@@ -89,7 +89,7 @@ def fetch_live_price(
     # (e.g., showing data up to April 18 when today is April 20).
     dates_to_try = [date.today().strftime("%d/%m/%Y")]
     if try_yesterday:
-        for offset in range(1, 4):
+        for offset in range(1, 10):
             dates_to_try.append((date.today() - timedelta(days=offset)).strftime("%d/%m/%Y"))
 
     def _is_valid(comm: str, p: float) -> bool:
@@ -163,21 +163,31 @@ def _call_api(
         _API_CACHE[api_cache_key] = (val, time.time())
         return val
 
-    try:
-        resp = requests.get(_BASE_URL, params=params, timeout=15)
-        if resp.status_code == 429:
-            log.warning("data.gov.in API error: 429 Client Error: Too Many Requests. Caching failure to prevent spam.")
+    max_retries = 3
+    data = None
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(_BASE_URL, params=params, timeout=30)
+            if resp.status_code == 429:
+                log.warning("data.gov.in API error: 429 Client Error: Too Many Requests. Caching failure to prevent spam.")
+                return set_cache_and_return(None)
+            resp.raise_for_status()
+            data = resp.json()
+            break  # Success
+        except requests.exceptions.Timeout:
+            log.warning("data.gov.in API timed out for %s/%s (Attempt %d/%d)", commodity, district, attempt + 1, max_retries)
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s
+            else:
+                return set_cache_and_return(None)
+        except requests.exceptions.RequestException as e:
+            log.warning("data.gov.in API error: %s", e)
             return set_cache_and_return(None)
-        resp.raise_for_status()
-        data = resp.json()
-    except requests.exceptions.Timeout:
-        log.warning("data.gov.in API timed out for %s/%s", commodity, district)
-        return set_cache_and_return(None)
-    except requests.exceptions.RequestException as e:
-        log.warning("data.gov.in API error: %s", e)
-        return set_cache_and_return(None)
-    except ValueError:
-        log.warning("data.gov.in returned non-JSON response")
+        except ValueError:
+            log.warning("data.gov.in returned non-JSON response")
+            return set_cache_and_return(None)
+
+    if not data:
         return set_cache_and_return(None)
 
     records = data.get("records", [])

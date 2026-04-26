@@ -123,7 +123,11 @@ class _AppShellState extends State<AppShell> {
     super.didChangeDependencies();
     if (!_fabInitialized) {
       final size = MediaQuery.of(context).size;
-      _fabPosition = Offset(size.width - 80, size.height - 140);
+      // Load from state if exists, otherwise default to bottom-right
+      _fabPosition = Offset(
+        widget.state.fabX ?? (size.width - 80),
+        widget.state.fabY ?? (size.height - 140),
+      );
       _fabInitialized = true;
     }
   }
@@ -251,8 +255,17 @@ class _AppShellState extends State<AppShell> {
           child: GestureDetector(
             onPanUpdate: (details) {
               setState(() {
+                final size = MediaQuery.of(context).size;
                 _fabPosition += details.delta;
+                // Clamp to screen bounds
+                _fabPosition = Offset(
+                  _fabPosition.dx.clamp(0.0, size.width - 62),
+                  _fabPosition.dy.clamp(0.0, size.height - 130),
+                );
               });
+            },
+            onPanEnd: (_) {
+              widget.state.updateFabPosition(_fabPosition.dx, _fabPosition.dy);
             },
             child: _GreenFAB(onTap: _openVoice),
           ),

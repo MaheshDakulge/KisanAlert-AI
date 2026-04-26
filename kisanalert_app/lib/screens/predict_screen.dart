@@ -57,17 +57,39 @@ class _PredictScreenState extends State<PredictScreen> {
                 children: [
                   CrashScoreGauge(score: crop.crashScore, isDark: isDark),
                   const SizedBox(height: 12),
+                  // ⭐ Added Crop Identity Label
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.state.activeCrop == 'Soybean' ? '🌱' : (widget.state.activeCrop == 'Cotton' ? '🌿' : '🌾'),
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isMarathi 
+                          ? '${widget.state.activeCrop == 'Soybean' ? 'सोयाबीन' : (widget.state.activeCrop == 'Cotton' ? 'कापूस' : 'हळद')} अंदाज'
+                          : '${widget.state.activeCrop} Prediction',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   _ZoneBar(isDark: isDark, isMarathi: isMarathi),
                   const SizedBox(height: 16),
                   AlertBadge(
                     level: crop.alertLevel,
                     label: crop.alertLevel == 'RED'
-                        ? '🚨 RED — Don\'t sell (Avoid loss)'
+                        ? (isMarathi ? '📉 भाव पडण्याची शक्यता (लगेच विका)' : '📉 Market Crash Likely (Sell Now)')
                         : crop.alertLevel == 'BLUE'
-                            ? '🔵 BLUE — Hold & wait (Earn more)'
+                            ? (isMarathi ? '📈 भाव वाढण्याची शक्यता (साठा ठेवा)' : '📈 Price Rise Likely (Hold)')
                             : crop.alertLevel == 'AMBER'
-                                ? '⚠️ AMBER — Farmer\'s choice'
-                                : '✅ GREEN — At peak, sell now',
+                                ? (isMarathi ? '⚠️ बाजार स्थिर (तुमचा निर्णय)' : '⚠️ Market Stable (Your Choice)')
+                                : (isMarathi ? '✅ आजचा भाव चांगला आहे' : '✅ Good Price Today'),
                     isDark: isDark,
                   ),
                   const SizedBox(height: 12),

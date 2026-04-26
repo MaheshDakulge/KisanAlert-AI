@@ -30,9 +30,9 @@ for _d in [RAW_DIR, PROCESSED_DIR, CACHE_DIR, MODELS_DIR, LOGS_DIR]:
     _d.mkdir(parents=True, exist_ok=True)
 
 # ── Data settings ──────────────────────────────────────────────────────────────
-RAW_CSV_PATH    = RAW_DIR / "soybean_nanded.csv"
+RAW_CSV_PATH    = RAW_DIR / "cotton_nanded.csv"
 SUPPORTED_CROPS = ["Soybean", "Cotton", "Turmeric"]
-TARGET_COMMODITY = "Soybean"  # Default fallback if no flag
+TARGET_COMMODITY = "Cotton"  # Default fallback if no flag
 TARGET_DISTRICT  = "Nanded"
 DATE_START       = "2021-01-01"   # extended: yearly CSVs cover 2021-2026
 from datetime import datetime
@@ -156,9 +156,9 @@ ALERT_RED_MIN   = 0.65   # score >= 0.65 → RED    (blueprint: RED > 0.65)
 MIN_RECALL_GUARD = 0.50
 
 ALERT_MESSAGES = {
-    "GREEN": "आज सोयाबीन विकणे सुरक्षित आहे. भाव स्थिर आहेत.",
+    "GREEN": "आज विकणे सुरक्षित आहे. भाव स्थिर आहेत.",
     "AMBER": "सावध राहा. पुढील 2-3 दिवस थांबा आणि परिस्थिती पाहा.",
-    "RED"  : "सोयाबीन आज विकू नका! भाव पडण्याची शक्यता आहे.",
+    "RED"  : "आजच विका! भाव पडण्याची शक्यता आहे.",
 }
 
 # ── Logging ────────────────────────────────────────────────────────────────────

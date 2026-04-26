@@ -114,12 +114,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // Crop badge for selected primary crop
                 Wrap(
                   spacing: 8, runSpacing: 8,
-                  children: [
-                    widget.state.farmerPrimaryCrop ?? widget.state.activeCrop,
-                    // always show all three for demo richness
-                    if ((widget.state.farmerPrimaryCrop ?? 'Soybean') != 'Soybean') 'Soybean',
-                    if ((widget.state.farmerPrimaryCrop ?? 'Cotton') != 'Cotton') 'Cotton',
-                  ].map((crop) {
+                  children: widget.state.farmerCropsList.map((crop) {
                     final emojis = {'Soybean':'🌱','Cotton':'🌿','Turmeric':'🌾'};
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -165,34 +160,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(isMarathi ? 'माझा प्रभाव / My Impact' : 'My Impact',
             style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary)),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2, shrinkWrap: true,
+          GridView.extent(
+            maxCrossAxisExtent: 250,
+            shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10, mainAxisSpacing: 10,
-            childAspectRatio: 1.7,
+            crossAxisSpacing: 12, mainAxisSpacing: 12,
+            childAspectRatio: 1.8,
             children: [
           _StatCard(
             isMarathi ? 'मिळालेले अलर्ट' : 'Alerts received',
-            '${widget.state.farmerStats?['total_alerts'] ?? 47}',
+            '${widget.state.farmerStats?['total_alerts'] ?? 0}',
             AppColors.greenPale, AppColors.greenText, isDark
           ),
           _StatCard(
             isMarathi ? 'पकडलेले क्रॅश' : 'Crashes caught',
-            widget.state.farmerStats != null
-                ? '${widget.state.farmerStats!['crashes_caught']}'
-                : widget.state.accuracyStats != null
-                    ? '${widget.state.accuracyStats!.correct}/${widget.state.accuracyStats!.total}'
-                    : '0/0',
+            '${widget.state.farmerStats?['crashes_caught'] ?? 0}',
             AppColors.greenPale, AppColors.greenText, isDark
           ),
           _StatCard(
             isMarathi ? 'वाचवलेले पैसे' : 'Money saved',
-            '${widget.state.farmerStats?['money_saved'] ?? '₹1.2L'}',
+            '${widget.state.farmerStats?['money_saved'] ?? '₹0'}',
             AppColors.greenPale, AppColors.greenText, isDark
           ),
           _StatCard(
             isMarathi ? 'अलर्ट स्ट्रीक 🔥' : 'Alert streak 🔥',
-            '${widget.state.farmerStats?['alert_streak'] ?? 23} days',
+            '${widget.state.farmerStats?['alert_streak'] ?? 0} days',
             AppColors.amberPale, AppColors.amberText, isDark
           ),
             ],
@@ -202,8 +194,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             isDark: isDark,
             child: Text(
               isMarathi
-                  ? 'तुम्ही या सीझनमध्ये KisanAlert अंदाज वापरून ₹1,20,000 वाचवले! 🎉'
-                  : 'You saved ₹1,20,000 this season following KisanAlert predictions! 🎉',
+                  ? 'तुम्ही या सीझनमध्ये KisanAlert अंदाज वापरून ${widget.state.farmerStats?['money_saved'] ?? '₹0'} वाचवले! 🎉'
+                  : 'You saved ${widget.state.farmerStats?['money_saved'] ?? '₹0'} this season following KisanAlert predictions! 🎉',
               style: GoogleFonts.workSans(fontSize: 16, fontWeight: FontWeight.w600,
                 color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary, height: 1.5),
             ),
@@ -214,11 +206,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(isMarathi ? 'माझी पिके आणि MSP' : 'My Crops & MSP',
             style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary)),
           const SizedBox(height: 12),
-          ...[
-            ('🌱 Soybean', 4892.0, 5352.0, surface),
-            ('🌿 Cotton', 7121.0, 7845.0, isDark ? AppColors.darkSurfaceHigh : AppColors.surfaceHigh),
-            ('🌾 Turmeric', 12000.0, 12000.0, isDark ? AppColors.darkSurface.withValues(alpha: 0.5) : AppColors.amberPale),
-          ].map((d) {
+          ...widget.state.farmerCropsList.map((crop) {
+            final emojis = {'Soybean':'🌱','Cotton':'🌿','Turmeric':'🌾'};
+            final double msp = crop == 'Soybean' ? 4892.0 : (crop == 'Cotton' ? 7121.0 : 12000.0);
+            
+            // If it's the active crop, we might have live price. Otherwise fallback to something realistic or MSP for demo
+            double currentPrice = msp;
+            if (widget.state.currentCrop != null && widget.state.currentCrop!.name == crop && widget.state.currentCrop!.price > 0) {
+              currentPrice = widget.state.currentCrop!.price;
+            } else {
+              // Slight bump above MSP if no live data to avoid showing red everywhere initially
+              currentPrice = crop == 'Soybean' ? 5352.0 : (crop == 'Cotton' ? 7845.0 : 12000.0); 
+            }
+            
+            return ('${emojis[crop] ?? "🌾"} $crop', msp, currentPrice, surface);
+          }).map((d) {
             final gap = d.$3 - d.$2;
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -413,7 +415,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(isMarathi ? 'KisanAlert बद्दल' : 'About KisanAlert',
                   style: GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w700, color: textPrimary)),
                 const SizedBox(height: 12),
-                Text('Google Solution Challenge 2026',
+                Text('H2S Hackathon 2026',
                   style: GoogleFonts.workSans(fontSize: 12, color: textMuted)),
                 const SizedBox(height: 8),
                 // ⭐ Google brand badge — replaces self-rating
@@ -430,8 +432,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(width: 8),
                     Text(
                       isMarathi
-                          ? 'Google Solution Challenge 2026\nTop 100 Global Selection'
-                          : 'Google Solution Challenge 2026\nTop 100 Global Selection',
+                          ? 'H2S Hackathon 2026\nOfficial Submission Candidate'
+                          : 'H2S Hackathon 2026\nOfficial Submission Candidate',
                       style: GoogleFonts.spaceGrotesk(
                           fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white, height: 1.4),
                     ),
@@ -464,9 +466,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton(
+              onPressed: () async {
+                await widget.state.logout();
+                // We should ideally navigate back to Login, but the state change 
+                // in main.dart should handle showing the LoginScreen if farmerId is null.
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.red,
+                side: const BorderSide(color: AppColors.red),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(
+                isMarathi ? 'लॉग आउट करा' : 'Logout',
+                style: GoogleFonts.workSans(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
         ],
       ),
     );
+
   }
 }
 

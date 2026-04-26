@@ -61,6 +61,21 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? _farmerStats;
   Map<String, dynamic>? get farmerStats => _farmerStats;
 
+  // ── FAB Position (Dynamic & Persistent) ──────────────────────────────────
+  double? _fabX;
+  double? _fabY;
+  double? get fabX => _fabX;
+  double? get fabY => _fabY;
+
+  Future<void> updateFabPosition(double x, double y) async {
+    _fabX = x;
+    _fabY = y;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('fabX', x);
+    await prefs.setDouble('fabY', y);
+  }
+
   Timer? _weatherTimer;
 
   AppState() {
@@ -81,6 +96,8 @@ class AppState extends ChangeNotifier {
       if (farmerPrimaryCrop != null && farmerPrimaryCrop!.isNotEmpty) {
         _activeCrop = farmerPrimaryCrop!.split(',').first.trim();
       }
+      _fabX = prefs.getDouble('fabX');
+      _fabY = prefs.getDouble('fabY');
     }
 
     // Step 2: Ping server to wake it up (handles cold start)
@@ -381,6 +398,13 @@ class AppState extends ChangeNotifier {
   String? farmerDistrict;
   String? farmerAcres;
   String? farmerPrimaryCrop;
+
+  List<String> get farmerCropsList {
+    if (farmerPrimaryCrop == null || farmerPrimaryCrop!.isEmpty) {
+      return ['Soybean', 'Cotton', 'Turmeric']; // Fallback default crops
+    }
+    return farmerPrimaryCrop!.split(',').map((c) => c.trim()).toList();
+  }
 
   Future<void> login(String id, String name, String phone, {
     String village = '',

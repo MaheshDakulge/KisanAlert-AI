@@ -50,9 +50,9 @@ RISE_WINDOW_DAYS = 10
 
 MESSAGES = {
     "RED": {
-        "marathi": "⚠️ सावधान! {days} दिवसात भाव पडण्याचा अंदाज. आजच विक्री थांबवा!",
-        "english": "⚠️ Warning! Price crash predicted in {days} days. Stop selling today!",
-        "action": "विकू नका / Don't sell",
+        "marathi": "⚠️ सावधान! {days} दिवसात भाव पडण्याचा अंदाज. नुकसान टाळण्यासाठी आजच विका!",
+        "english": "⚠️ Warning! Price crash predicted in {days} days. Sell today to avoid loss!",
+        "action": "लगेच विका / Sell Now",
     },
     "BLUE": {
         "marathi": "💎 थांबा! {days} दिवसात भाव वाढणार. आज विकणे टाळा.",

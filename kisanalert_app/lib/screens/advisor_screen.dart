@@ -412,7 +412,7 @@ class _AdvisorScreenState extends State<AdvisorScreen> with SingleTickerProvider
   String _levelLabel(String level, bool isMarathi) {
     if (isMarathi) {
       switch (level) {
-        case 'RED': return '🚨 विकू नका!';
+        case 'RED': return '🚨 आजच विक्री करा!';
         case 'BLUE': return '💎 थांबा!';
         case 'GREEN': return '✅ आजच विका!';
         default: return '⚠️ तुमची निवड';

@@ -30,8 +30,8 @@ for _d in [RAW_DIR, PROCESSED_DIR, CACHE_DIR, MODELS_DIR, LOGS_DIR]:
     _d.mkdir(parents=True, exist_ok=True)
 
 # ── Data settings ──────────────────────────────────────────────────────────────
-RAW_CSV_PATH    = RAW_DIR / "soybean_nanded.csv"
-TARGET_COMMODITY = "Soybean"
+RAW_CSV_PATH    = RAW_DIR / "cotton_nanded.csv"
+TARGET_COMMODITY = "Cotton"
 TARGET_DISTRICT  = "Nanded"
 DATE_START       = "2021-01-01"   # extended: yearly CSVs cover 2021-2026
 DATE_END         = "2026-04-30"

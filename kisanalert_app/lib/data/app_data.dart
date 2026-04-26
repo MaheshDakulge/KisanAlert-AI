@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 // Use --dart-define=API_URL=https://your-cloud-run-url.run.app/api/v1 to override
 const String _baseUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'https://kisanalert-api-862035785988.asia-south1.run.app/api/v1', // Maps to live GCP backend
+  defaultValue: 'http://localhost:8000/api/v1',
 );
 
 // ── Data Models ────────────────────────────────────────────────────────────────
@@ -284,6 +285,34 @@ class ApiService {
         return json.decode(res.body)['marathi_response'];
       }
     } catch (_) {}
+    return null;
+  }
+
+  /// New: Upload raw audio bytes to Gemini multimodal endpoint
+  static Future<String?> uploadVoiceAudio(Uint8List bytes, String fileName, String commodity, String district) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/voice/audio'),
+      );
+      request.fields['commodity'] = commodity;
+      request.fields['district'] = district;
+      
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+      ));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 20));
+      final res = await http.Response.fromStream(streamedResponse);
+      
+      if (res.statusCode == 200) {
+        return json.decode(utf8.decode(res.bodyBytes))['marathi_response'];
+      }
+    } catch (e) {
+      print("Audio upload failed: $e");
+    }
     return null;
   }
 
