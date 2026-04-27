@@ -10,7 +10,7 @@ venv/
 .pytest_cache/
 
 logs/
-models/
+/models/
 data/cache/
 data/processed/
 
