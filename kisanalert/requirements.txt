@@ -38,3 +38,4 @@ yfinance>=0.2.0
 
 # Form data for Voice Uploads
 python-multipart>=0.0.9
+pytz>=2023.3

@@ -6,7 +6,7 @@ name: Daily Price Pipeline
 
 on:
   schedule:
-    - cron: '30 2 * * *'   # 8:00 AM IST = 2:30 AM UTC, every day
+    - cron: '30 2,11 * * *'   # 8:00 AM IST and 5:00 PM IST, every day
   workflow_dispatch:        # Also allows manual trigger from GitHub UI
 
 jobs:

@@ -200,8 +200,11 @@ def run() -> dict:
 
     # ── Phase 10: FCM Push Notification to Farmer's Phone ──────────────────────
     try:
-        from src.alerts.fcm_notifier import broadcast_data_refresh, broadcast_crash_alert
+        from src.alerts.fcm_notifier import broadcast_data_refresh, broadcast_crash_alert, broadcast_periodic_update
         log.info("[Phase 10] Sending FCM push notification to farmers...")
+        
+        # Trigger the Periodic Market Update (Morning/Evening)
+        broadcast_periodic_update(config.TARGET_COMMODITY, float(today_price))
 
         # Always send a DATA_REFRESH so the Flutter app silently reloads
         broadcast_data_refresh(

@@ -139,3 +139,46 @@ def broadcast_data_refresh(
     except Exception as e:
         log.error("[FCM] DATA_REFRESH failed for %s: %s", commodity, e)
 
+
+def broadcast_periodic_update(commodity: str, price: float):
+    """
+    Sends a friendly notification for morning/evening updates.
+    """
+    from datetime import datetime
+    import pytz
+
+    # IST timezone logic
+    ist = pytz.timezone('Asia/Kolkata')
+    now_ist = datetime.now(ist)
+    hour = now_ist.hour
+
+    if 5 <= hour < 12:
+        title = "🌅 शुभ प्रभात! बाजार भाव अपडेट"
+        body = f"आजचे {commodity} चे ताजे भाव: ₹{price:.0f}/qtl. मार्केट उघडले आहे!"
+    elif 12 <= hour < 18:
+        title = "🌇 दुपारचे मार्केट अपडेट"
+        body = f"{commodity} अपडेट: आताचा भाव ₹{price:.0f}/qtl आहे."
+    else:
+        title = "🌙 सायंकाळचे मार्केट रिपोर्ट"
+        body = f"आजचे मार्केट क्लोजिंग: {commodity} ₹{price:.0f}/qtl."
+
+    app = get_firebase_app()
+    if not app: return
+
+    fcm_message = messaging.Message(
+        notification=messaging.Notification(title=title, body=body),
+        data={
+            "type": "MARKET_UPDATE",
+            "commodity": commodity,
+            "price": str(round(price)),
+        },
+        android=messaging.AndroidConfig(priority="high"),
+        topic="market_alerts",
+    )
+
+    try:
+        messaging.send(fcm_message)
+        log.info(f"[FCM] Periodic update sent for {hour}:00 IST")
+    except Exception as e:
+        log.error(f"[FCM] Failed periodic update: {e}")
+
