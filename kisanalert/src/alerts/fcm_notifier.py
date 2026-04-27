@@ -19,15 +19,35 @@ def get_firebase_app():
         return firebase_admin.get_app()
     except ValueError:
         # App is not initialized, let's initialize it
+        
+        # 1. Try to load from Environment Variable (Best for GitHub Actions)
+        import json
+        import os
+        firebase_json = os.environ.get("FIREBASE_ADMIN_SDK_JSON")
+        if firebase_json:
+            try:
+                # Clean the string if it has extra quotes
+                if firebase_json.startswith("'") and firebase_json.endswith("'"):
+                    firebase_json = firebase_json[1:-1]
+                
+                cred_dict = json.loads(firebase_json)
+                cred = credentials.Certificate(cred_dict)
+                log.info("Firebase initialized from environment variable.")
+                return firebase_admin.initialize_app(cred)
+            except Exception as e:
+                log.error(f"Failed to initialize Firebase from environment variable: {e}")
+        
+        # 2. Try to load from local file
         base_dir = Path(__file__).resolve().parent.parent.parent
         cert_path = base_dir / "firebase-adminsdk.json"
         
-        if not cert_path.exists():
-            log.warning(f"Firebase credentials not found at {cert_path}. Push notifications disabled.")
-            return None
-
-        cred = credentials.Certificate(str(cert_path))
-        return firebase_admin.initialize_app(cred)
+        if cert_path.exists():
+            cred = credentials.Certificate(str(cert_path))
+            log.info(f"Firebase initialized from local file: {cert_path}")
+            return firebase_admin.initialize_app(cred)
+        
+        log.warning("Firebase credentials not found (tried env var and file). Push notifications disabled.")
+        return None
 
 def broadcast_crash_alert(commodity: str, price: float, alert_message: str):
     """
