@@ -225,7 +225,9 @@ def run() -> dict:
         else:
             log.info("[Phase 10] ✅ DATA_REFRESH FCM sent for %s [%s] @ ₹%.0f", config.TARGET_COMMODITY, alert['alert_level'], today_price)
     except Exception as e:
-        log.error("[Phase 10] FCM notification failed (non-blocking): %s", e)
+        import traceback
+        log.error("[Phase 10] FCM notification failed: %s", e)
+        log.error(traceback.format_exc())
 
     run_end = datetime.now()
     log.info("Pipeline completed in %.2f seconds.", (run_end - run_start).total_seconds())

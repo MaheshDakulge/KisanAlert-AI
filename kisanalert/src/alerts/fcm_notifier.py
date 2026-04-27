@@ -46,7 +46,7 @@ def get_firebase_app():
             log.info(f"Firebase initialized from local file: {cert_path}")
             return firebase_admin.initialize_app(cred)
         
-        log.warning("Firebase credentials not found (tried env var and file). Push notifications disabled.")
+        log.warning("Firebase credentials not found (tried env var 'FIREBASE_ADMIN_SDK_JSON' and file). Push notifications will be skipped.")
         return None
 
 def broadcast_crash_alert(commodity: str, price: float, alert_message: str):
@@ -163,7 +163,9 @@ def broadcast_periodic_update(commodity: str, price: float):
         body = f"आजचे मार्केट क्लोजिंग: {commodity} ₹{price:.0f}/qtl."
 
     app = get_firebase_app()
-    if not app: return
+    if not app:
+        log.warning("[FCM] Firebase not initialized - Skipping periodic update for %s", commodity)
+        return
 
     fcm_message = messaging.Message(
         notification=messaging.Notification(title=title, body=body),
