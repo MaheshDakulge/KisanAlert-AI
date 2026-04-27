@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 // Use --dart-define=API_URL=https://your-cloud-run-url.run.app/api/v1 to override
 const String _baseUrl = String.fromEnvironment(
   'API_URL',
-  defaultValue: 'http://localhost:8000/api/v1',
+  defaultValue: 'https://kisanalert-api-862035785988.asia-south1.run.app/api/v1',
 );
 
 // ── Data Models ────────────────────────────────────────────────────────────────
