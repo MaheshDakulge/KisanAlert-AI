@@ -160,6 +160,8 @@ class AppState extends ChangeNotifier {
           alertLevel: alertData['alert_level'] ?? 'AMBER',
           message: alertData['message'] ?? '',
           msp: _activeCrop == 'Soybean' ? 4892 : (_activeCrop == 'Cotton' ? 7121 : 12000),
+          netProfitToday: (alertData['net_profit_today'] as num?)?.toDouble() ?? 0.0,
+          potentialGainLoss: (alertData['potential_gain_loss'] as num?)?.toDouble() ?? 0.0,
         );
       } else {
         _currentCrop = CropData(name: _activeCrop, price: 0, crashScore: 0, alertLevel: 'GREEN', message: 'No live or cached data.', msp: 0);

@@ -26,9 +26,9 @@ echo Scheduling the pipeline to run twice a day (11 AM and 6 PM IST).
 echo This ensures farmers get the freshest predictions right after market hours.
 echo.
 
-:: 11:00 AM IST Schedule
+:: 08:00 AM IST Schedule (02:30 UTC)
 gcloud scheduler jobs create http trigger-kisanalert-morning ^
-  --schedule="30 5 * * *" ^
+  --schedule="30 2 * * *" ^
   --time-zone="UTC" ^
   --uri="https://%GCP_REGION%-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/%PROJECT_ID%/jobs/kisanalert-pipeline:run" ^
   --http-method="POST" ^
