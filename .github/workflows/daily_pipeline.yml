@@ -11,8 +11,12 @@ on:
 
 jobs:
   run-pipeline:
-    name: Run KisanAlert Pipeline
+    name: Run KisanAlert Pipeline (${{ matrix.crop }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crop: [Soybean, Cotton, Turmeric]
 
     steps:
       - name: Checkout Code
@@ -27,7 +31,8 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
-          pip install -r kisanalert/requirements.txt
+          pip install -r Agri/requirements.txt
+          pip install -r Agri/kisanalert/requirements.txt
 
       - name: Run Daily Pipeline
         env:
@@ -35,14 +40,16 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DATAGOV_API_KEY: ${{ secrets.DATAGOV_API_KEY }}
           FIREBASE_ADMIN_SDK_JSON: ${{ secrets.FIREBASE_ADMIN_SDK_JSON }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PYTHONIOENCODING: utf-8
         run: |
-          python run_pipeline.py
+          cd Agri
+          python run_pipeline.py --crop ${{ matrix.crop }}
 
       - name: Upload Pipeline Log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pipeline-log-${{ github.run_number }}
-          path: kisanalert/logs/
+          name: pipeline-log-${{ matrix.crop }}-${{ github.run_number }}
+          path: Agri/logs/
           retention-days: 7

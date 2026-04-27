@@ -19,8 +19,6 @@ class CropData {
   final String alertLevel;
   final String message;
   final double msp;
-  final double netProfitToday;
-  final double potentialGainLoss;
 
   CropData({
     required this.name,
@@ -31,8 +29,6 @@ class CropData {
     required this.alertLevel,
     required this.message,
     required this.msp,
-    this.netProfitToday = 0.0,
-    this.potentialGainLoss = 0.0,
   });
 }
 

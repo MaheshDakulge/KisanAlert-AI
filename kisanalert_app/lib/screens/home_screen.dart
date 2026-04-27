@@ -273,23 +273,17 @@ class _HeroDecisionCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _PriceBox(
-                  label: isMarathi ? 'आजचा निव्वळ नफा' : 'Net Profit Today',
-                  value: '₹${crop.netProfitToday > 0 ? crop.netProfitToday.toStringAsFixed(0) : crop.price.toStringAsFixed(0)}',
-                  subtext: isMarathi ? 'खर्च वजा जाता' : 'After expenses',
+                  label: isMarathi ? 'आजचा भाव' : 'Today',
+                  value: '₹${crop.price.toStringAsFixed(0)}',
+                  subtext: isMarathi ? 'प्रति क्विंटल' : '/quintal',
                   textColor: textPrimary,
                   isDark: isDark,
-                  extraLabel: dynamicLevel == 'RED' 
-                    ? (isMarathi ? 'नुकसान टाळा: ₹${crop.potentialGainLoss.toStringAsFixed(0)}' : 'Avoid Loss: ₹${crop.potentialGainLoss.toStringAsFixed(0)}')
-                    : (dynamicLevel == 'BLUE' 
-                        ? (isMarathi ? 'जादा नफा: ₹${crop.potentialGainLoss.toStringAsFixed(0)}' : 'Extra Gain: ₹${crop.potentialGainLoss.toStringAsFixed(0)}')
-                        : null),
-                  extraColor: dynamicLevel == 'RED' ? AppColors.red : AppColors.blue,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _PriceBox(
-                  label: isMarathi ? '१० दिवसांत अंदाज' : '10-day forecast',
+                  label: isMarathi ? '१० दिवसांत' : '10-day forecast',
                   value: '₹${day10Price.toStringAsFixed(0)}',
                   subtext: day10Change >= 0
                       ? '+${day10Change.toStringAsFixed(1)}% ↑'
