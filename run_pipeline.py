@@ -277,7 +277,26 @@ if __name__ == "__main__":
         action="store_true",
         help="Run full training pipeline (Phases 1–4 + evaluation) before inference."
     )
+    parser.add_argument(
+        "--crop",
+        type=str,
+        help="Target commodity (e.g., Soybean, Cotton, Turmeric)"
+    )
+    parser.add_argument(
+        "--district",
+        type=str,
+        help="Target district (e.g., Nanded, Latur)"
+    )
+
     args = parser.parse_args()
+
+    # Override config defaults if CLI arguments are provided
+    if args.crop:
+        log.info("Overriding TARGET_COMMODITY to: %s", args.crop)
+        config.TARGET_COMMODITY = args.crop
+    if args.district:
+        log.info("Overriding TARGET_DISTRICT to: %s", args.district)
+        config.TARGET_DISTRICT = args.district
 
     if args.train:
         run_full_training()
