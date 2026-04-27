@@ -103,9 +103,16 @@ class _KisanAlertAppState extends State<KisanAlertApp> {
               ),
             ),
           );
+
+          // Add to the internal notification panel (the Bell icon list)
+          _appState.addNotification(AppNotification(
+            emoji: message.data['type'] == 'RED_ALERT' ? '🚨' : '📊',
+            title: notification.title ?? 'Market Update',
+            body: notification.body ?? '',
+          ));
         }
 
-        if (message.data['type'] == 'DATA_REFRESH') {
+        if (message.data['type'] == 'DATA_REFRESH' || message.data['type'] == 'MARKET_UPDATE') {
           _appState.fetchData();
         }
       });
