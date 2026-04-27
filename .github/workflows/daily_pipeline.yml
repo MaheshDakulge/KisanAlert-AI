@@ -41,8 +41,7 @@ jobs:
           FIREBASE_ADMIN_SDK_JSON: ${{ secrets.FIREBASE_ADMIN_SDK_JSON }}
           PYTHONIOENCODING: utf-8
         run: |
-          cd kisanalert
-          python ../run_pipeline.py
+          python run_pipeline.py
 
       - name: Upload Pipeline Log
         if: always()
