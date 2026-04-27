@@ -1,12 +1,12 @@
 # KisanAlert — Daily ML Pipeline (Auto-Scheduler)
-# Runs every day at 8:00 AM IST (2:30 AM UTC)
+# Runs every day at 8:00 AM IST and 6:00 PM IST (02:30 and 12:30 UTC)
 # Fetches latest mandi data → runs ML prediction → pushes alert to Supabase
 
 name: Daily Price Pipeline
 
 on:
   schedule:
-    - cron: '30 2,11 * * *'   # 8:00 AM IST and 5:00 PM IST, every day
+    - cron: '30 2,12 * * *'   # 08:00 AM IST and 06:00 PM IST, every day
   workflow_dispatch:        # Also allows manual trigger from GitHub UI
 
 jobs:
