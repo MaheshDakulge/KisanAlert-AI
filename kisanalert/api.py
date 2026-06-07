@@ -64,6 +64,14 @@ def root():
         "docs_url": "/docs"
     }
 
+@app.get("/health", tags=["Health Check"])
+def health_check():
+    """
+    Simple health check endpoint for monitoring bots (e.g. cron-job.org)
+    to keep the Render free tier instance awake.
+    """
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
 # ── Auth Endpoints (called by Flutter login screen) ────────────────────────────
 
 class LoginRequest(BaseModel):
